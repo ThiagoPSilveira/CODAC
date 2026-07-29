@@ -279,9 +279,11 @@ rhythm, and, separately, which share the same baseline:
 | Column | Meaning |
 |---|---|
 | `Grouping` | The winning **rhythm** grouping. When `p_rhythm_diff` is significant, the search runs and returns the best configuration, e.g. `{G1,G2} != {G3}` (G1 and G2 share a rhythm, G3 differs) or `{G1,G2} ; arrhythmic: G3` (non-rhythmic groups annotated). When it is **not** significant, no split is searched and the label instead says whether the shared behavior is a rhythm or none: `All groups rhythmic (shared rhythm)` or `All groups arrhythmic` (decided by `p_global_rhythm`). When the omnibus test could not be computed (e.g. a group with too few valid points), it reads `Undetermined (insufficient data)` — never silently merged into the "equal" cases. |
+| `Grouping_Model` | A short, stable code for the winning rhythm model (`M01`–`M15` for three groups), for easy filtering in R. See the legend below; empty when the grouping is `Undetermined`. |
 | `Grouping_Confidence` | The strength of evidence for that grouping, in `[0, 1]` (the criterion weights of all candidate models sum to 1). Near 1 = decisive; low = the top models were close (an uncertain call). `NA` when no grouping was searched. |
 | `Grouping_IC_Gap` | The information-criterion margin to the runner-up model. A small gap is another sign of a close call. |
 | `Grouping_Mesor`, `Grouping_Mesor_Confidence`, `Grouping_Mesor_IC_Gap` | Exactly the same three, but for the **baseline (mesor)** axis, gated by `p_mesor_diff`. Its "no difference" label is `All groups equal (same baseline)`, and `Undetermined (insufficient data)` when the mesor omnibus could not be computed. |
+| `Grouping_Mesor_Model` | The stable code for the winning mesor model (`MM1`–`MM5` for three groups); see the legend below. |
 
 The grouping is chosen by **model selection**: CODAC fits every possible
 configuration of rhythm-sharing across the groups and keeps the one with the best
@@ -302,6 +304,47 @@ identical rhythm across groups while its baseline splits (or vice versa).
 > `Grouping_Confidence` tells you *how much to trust* that structure. A significant
 > `p_rhythm_diff` with a low confidence means "there is a difference, but the exact
 > grouping is uncertain" — worth checking the pairwise rows for that target.
+
+#### Model legend (three groups)
+
+The `Grouping_Model` / `Grouping_Mesor_Model` codes are stable for a **fixed
+number of groups**. For three groups the rhythm axis has 15 models and the mesor
+axis 5 (`G1`, `G2`, `G3` in the order given in `groups`; `!=` separates
+different-rhythm blocks; `arr` = arrhythmic in that model):
+
+| Rhythm | Meaning | | Rhythm | Meaning |
+|---|---|---|---|---|
+| `M01` | arrhythmic in all | | `M09` | {G2,G3} rhythmic; G1 arr |
+| `M02` | {G1} rhythmic; G2,G3 arr | | `M10` | {G2} != {G3}; G1 arr |
+| `M03` | {G2} rhythmic; G1,G3 arr | | `M11` | all rhythmic, one shared rhythm |
+| `M04` | {G3} rhythmic; G1,G2 arr | | `M12` | {G1} != {G2,G3} |
+| `M05` | {G1,G2} rhythmic; G3 arr | | `M13` | {G1,G2} != {G3} |
+| `M06` | {G1} != {G2}; G3 arr | | `M14` | {G1,G3} != {G2} |
+| `M07` | {G1,G3} rhythmic; G2 arr | | `M15` | {G1} != {G2} != {G3} |
+| `M08` | {G1} != {G3}; G2 arr | | | |
+
+| Mesor | Meaning |
+|---|---|
+| `MM1` | all groups share one baseline |
+| `MM2` | {G1} != {G2,G3} |
+| `MM3` | {G1,G2} != {G3} |
+| `MM4` | {G1,G3} != {G2} |
+| `MM5` | {G1} != {G2} != {G3} |
+
+Filter in R by code, e.g. keep the "one group loses the rhythm" cases:
+`analysis_results %>% filter(Grouping_Model %in% c("M05","M07","M09"))`.
+
+> **A note on the per-group tiers vs. the grouping.** The per-group `Probability`
+> tier (arrhythmic … extremely high) and the `Grouping` come from two different
+> analyses: the tier is the multi-criteria score of each group fitted on its own,
+> while the grouping compares the fitted rhythm **curves** across groups with a
+> single statistical model. They can disagree — a group can score "arrhythmic"
+> on its own (e.g. from high noise or a sub-threshold amplitude) while its rhythm
+> curve is not statistically distinguishable from a rhythmic group's, so the
+> grouping still reads "shared rhythm". That is not a contradiction: the tier
+> answers "does this group, alone, look rhythmic?" and the grouping answers "do
+> the groups' rhythms differ?". When they diverge, `p_rhythm_diff` and the
+> pairwise rows show which view the data support.
 
 ---
 
