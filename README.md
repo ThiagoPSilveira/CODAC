@@ -278,7 +278,7 @@ rhythm, and, separately, which share the same baseline:
 
 | Column | Meaning |
 |---|---|
-| `Grouping` | The winning **rhythm** grouping. When `p_rhythm_diff` is significant, the search runs and returns the best configuration, e.g. `{G1,G2} != {G3}` (G1 and G2 share a rhythm, G3 differs) or `{G1,G2} ; arrhythmic: G3` (non-rhythmic groups annotated). When it is **not** significant, no split is searched and the label instead says whether the shared behavior is a rhythm or none: `All groups rhythmic (shared rhythm)` or `All groups arrhythmic` (decided by `p_global_rhythm`). When the omnibus test could not be computed (e.g. a group with too few valid points), it reads `Undetermined (insufficient data)` — never silently merged into the "equal" cases. |
+| `Grouping` | The winning **rhythm** grouping. Which groups are **rhythmic** is decided first, by CODA's own per-group multi-criteria tier: a group counts as rhythmic only if its `Probability` reaches `rhythmicity_cutoff` (so a `LOW` group is treated as arrhythmic, the same bar `codac_compare()` uses). Then, among the rhythmic groups, model selection decides **how they share** the rhythm: `{G1,G2} != {G3}` (G1, G2 share it, G3 differs), `{G1,G2,G3} (all equal)` / `All groups rhythmic (shared rhythm)`, `{G1} ; arrhythmic: G2,G3` (only G1 rhythmic), or `All groups arrhythmic` (none reach the cutoff). If two or more groups are rhythmic but the omnibus `p_rhythm_diff` could not be computed, it reads `Undetermined (insufficient data)`. |
 | `Grouping_Model` | A short, stable code for the winning rhythm model (`M01`–`M15` for three groups), for easy filtering in R. See the legend below; empty when the grouping is `Undetermined`. |
 | `Grouping_Confidence` | The strength of evidence for that grouping, in `[0, 1]` (the criterion weights of all candidate models sum to 1). Near 1 = decisive; low = the top models were close (an uncertain call). `NA` when no grouping was searched. |
 | `Grouping_IC_Gap` | The information-criterion margin to the runner-up model. A small gap is another sign of a close call. |
@@ -334,17 +334,17 @@ different-rhythm blocks; `arr` = arrhythmic in that model):
 Filter in R by code, e.g. keep the "one group loses the rhythm" cases:
 `analysis_results %>% filter(Grouping_Model %in% c("M05","M07","M09"))`.
 
-> **A note on the per-group tiers vs. the grouping.** The per-group `Probability`
-> tier (arrhythmic … extremely high) and the `Grouping` come from two different
-> analyses: the tier is the multi-criteria score of each group fitted on its own,
-> while the grouping compares the fitted rhythm **curves** across groups with a
-> single statistical model. They can disagree — a group can score "arrhythmic"
-> on its own (e.g. from high noise or a sub-threshold amplitude) while its rhythm
-> curve is not statistically distinguishable from a rhythmic group's, so the
-> grouping still reads "shared rhythm". That is not a contradiction: the tier
-> answers "does this group, alone, look rhythmic?" and the grouping answers "do
-> the groups' rhythms differ?". When they diverge, `p_rhythm_diff` and the
-> pairwise rows show which view the data support.
+> **How the grouping relates to the per-group tiers and the global tests.** The
+> `Grouping` deliberately follows CODA's per-group `Probability` tier for the
+> "who is rhythmic" question: a group is placed in a rhythmic block only if it
+> reaches `rhythmicity_cutoff`, so a weakly-oscillating `LOW` group is treated as
+> arrhythmic even if a bare significance test would flag it. This means
+> `p_global_rhythm` (a pure "is there any rhythm?" p-value) can be significant
+> while the `Grouping` still reads `All groups arrhythmic` — that is expected, not
+> a contradiction: `p_global_rhythm` only asks whether *some* oscillation is
+> statistically detectable, whereas the grouping requires a rhythm strong enough
+> to pass CODA's multi-criteria bar. The model-selection step (and `p_rhythm_diff`)
+> then only decides how the groups that *are* rhythmic share their rhythm.
 
 ---
 
