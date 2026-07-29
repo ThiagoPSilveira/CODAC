@@ -1,0 +1,27 @@
+Package: CODAC
+Type: Package
+Title: Circadian Oscillation Detection, Analysis and Comparison
+Version: 0.1.0
+Authors@R: c(
+    person("Thiago", "Parente da Silveira", email = "thiago.silveira@gp.ita.br", role = c("aut", "cre")),
+    person("Leonardo Vinicius", "Monteiro de Assis", role = "aut"))
+Description: A unified framework for detecting, characterizing and comparing
+    circadian rhythmicity in biological time-series data. CODAC bundles four
+    tools that share one Python analysis engine, wrapped in R via reticulate:
+    codac_single() for fixed-period rhythmicity estimation in a single group;
+    codac_flex() for flexible waveform-model selection (standard, linear, damped,
+    rapidly damped); codac_compare() for pairwise differential rhythmicity between
+    two or more groups; and codac_multi() for the multi-group grouping question,
+    selecting the best configuration of rhythm (and, separately, baseline) sharing
+    across groups by model selection. The Python engine and its dependencies are
+    set up automatically on first use.
+License: GPL-3
+Encoding: UTF-8
+Imports:
+    reticulate
+Suggests:
+    remotes,
+    dplyr,
+    UpSetR,
+    ggplot2
+Config/roxygen2/version: 8.0.0
