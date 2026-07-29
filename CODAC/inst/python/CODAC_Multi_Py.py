@@ -629,6 +629,14 @@ def _rhythm_label(model, all_groups):
         core += " ; arrhythmic: " + ",".join(arrhythmic)
     return core
 
+def _rhythm_code(model, all_groups):
+    # Canonical, stable ID of a rhythm model ("M01".."M15" for 3 groups),
+    # matching the enumeration order documented in the README legend.
+    try:
+        return "M%02d" % (enumerate_rhythm_models(all_groups).index(model) + 1)
+    except ValueError:
+        return ""
+
 #-------------------------------------------------------------------
 # Rhythm group
 #-------------------------------------------------------------------
@@ -663,7 +671,7 @@ def select_rhythm_grouping(df_gene, all_groups, criterion='BIC',
     weights = weights / np.nansum(weights)
     ic_gap = float(ics[order[1]] - ics[order[0]]) if len(order) > 1 and np.isfinite(ics[order[1]]) else np.inf
 
-    return _rhythm_label(models[best], all_groups), float(weights[best]), ic_gap
+    return _rhythm_label(models[best], all_groups), float(weights[best]), ic_gap, _rhythm_code(models[best], all_groups)
 
 # -------------------------------------------------------------------
 # MESOR axis -- a SEPARATE grouping, on the baseline (mesor) only.
@@ -704,6 +712,13 @@ def _mesor_label(blocks):
         return parts[0] + " (all equal)"
     return " != ".join(parts)
 
+def _mesor_code(blocks, all_groups):
+    # Canonical, stable ID of a mesor model ("MM1".."MM5" for 3 groups).
+    try:
+        return "MM%d" % (enumerate_mesor_models(all_groups).index(blocks) + 1)
+    except ValueError:
+        return ""
+
 #-------------------------------------------------------------------
 # Select mesor
 #-------------------------------------------------------------------
@@ -732,7 +747,7 @@ def select_mesor_grouping(df_gene, all_groups, criterion='BIC',
     weights = weights / np.nansum(weights)
     ic_gap = float(ics[order[1]] - ics[order[0]]) if len(order) > 1 and np.isfinite(ics[order[1]]) else np.inf
 
-    return _mesor_label(models[best]), float(weights[best]), ic_gap
+    return _mesor_label(models[best]), float(weights[best]), ic_gap, _mesor_code(models[best], all_groups)
 
 #-------------------------------------------------------------------
 # Mesor omnibus gate
@@ -1534,8 +1549,8 @@ def _export_excel_formatted(df, file_path):
     # 4. Merge Global Columns and Color
     # ==========================================
     columns_gene = ['Target', 'p_global_rhythm', 'p_rhythm_diff', 'p_mesor_diff',
-                    'Grouping', 'Grouping_Confidence', 'Grouping_IC_Gap',
-                    'Grouping_Mesor', 'Grouping_Mesor_Confidence', 'Grouping_Mesor_IC_Gap']
+                    'Grouping', 'Grouping_Model', 'Grouping_Confidence', 'Grouping_IC_Gap',
+                    'Grouping_Mesor', 'Grouping_Mesor_Model', 'Grouping_Mesor_Confidence', 'Grouping_Mesor_IC_Gap']
 
     for col_name in columns_gene:
         if col_name not in df.columns: continue
@@ -1955,18 +1970,21 @@ def main():
                 p_gate = global_test_row.get('p_rhythm_diff', np.nan)
                 p_any = global_test_row.get('p_global_rhythm', np.nan)
                 if pd.isna(p_gate):
-                    g_lab, g_conf, g_gap = "Undetermined (insufficient data)", np.nan, np.nan
+                    g_lab, g_conf, g_gap, g_code = "Undetermined (insufficient data)", np.nan, np.nan, ""
                 elif p_gate <= p_threshold:
-                    g_lab, g_conf, g_gap = select_rhythm_grouping(
+                    g_lab, g_conf, g_gap, g_code = select_rhythm_grouping(
                         df_gene, groups_in_gene, criterion=selection_criterion,
                         time_col='time', expr_col='expr', group_col='group')
                 elif (not pd.isna(p_any)) and (p_any <= p_threshold):
                     g_lab, g_conf, g_gap = "All groups rhythmic (shared rhythm)", np.nan, np.nan
+                    g_code = _rhythm_code((frozenset(groups_in_gene), (tuple(sorted(groups_in_gene)),)), groups_in_gene)
                 else:
                     g_lab, g_conf, g_gap = "All groups arrhythmic", np.nan, np.nan
+                    g_code = _rhythm_code((frozenset(), tuple()), groups_in_gene)
                 global_test_row['Grouping'] = g_lab
                 global_test_row['Grouping_Confidence'] = g_conf
                 global_test_row['Grouping_IC_Gap'] = g_gap
+                global_test_row['Grouping_Model'] = g_code
 
                 # Mesor axis (baseline), gated by its own omnibus test -- symmetric
                 # to the rhythm axis, so a baseline grouping is only searched when
@@ -1976,16 +1994,18 @@ def main():
                     time_col='time', expr_col='expr', group_col='group')
                 global_test_row['p_mesor_diff'] = p_mesor
                 if pd.isna(p_mesor):
-                    m_lab, m_conf, m_gap = "Undetermined (insufficient data)", np.nan, np.nan
+                    m_lab, m_conf, m_gap, m_code = "Undetermined (insufficient data)", np.nan, np.nan, ""
                 elif p_mesor <= p_threshold:
-                    m_lab, m_conf, m_gap = select_mesor_grouping(
+                    m_lab, m_conf, m_gap, m_code = select_mesor_grouping(
                         df_gene, groups_in_gene, criterion=selection_criterion,
                         time_col='time', expr_col='expr', group_col='group')
                 else:
                     m_lab, m_conf, m_gap = "All groups equal (same baseline)", np.nan, np.nan
+                    m_code = _mesor_code((tuple(sorted(groups_in_gene)),), groups_in_gene)
                 global_test_row['Grouping_Mesor'] = m_lab
                 global_test_row['Grouping_Mesor_Confidence'] = m_conf
                 global_test_row['Grouping_Mesor_IC_Gap'] = m_gap
+                global_test_row['Grouping_Mesor_Model'] = m_code
 
                 global_results.append(global_test_row)
 
@@ -2238,9 +2258,11 @@ def main():
                     row_dict['p_mesor_diff'] = df_gbl.loc[0, 'p_mesor_diff'] if (not df_gbl.empty and 'p_mesor_diff' in df_gbl.columns) else ""
                     _has_grp = (not df_gbl.empty) and ('Grouping' in df_gbl.columns)
                     row_dict['Grouping'] = df_gbl.loc[0, 'Grouping'] if _has_grp else ""
+                    row_dict['Grouping_Model'] = df_gbl.loc[0, 'Grouping_Model'] if (_has_grp and 'Grouping_Model' in df_gbl.columns) else ""
                     row_dict['Grouping_Confidence'] = df_gbl.loc[0, 'Grouping_Confidence'] if _has_grp else ""
                     row_dict['Grouping_IC_Gap'] = df_gbl.loc[0, 'Grouping_IC_Gap'] if _has_grp else ""
                     row_dict['Grouping_Mesor'] = df_gbl.loc[0, 'Grouping_Mesor'] if _has_grp else ""
+                    row_dict['Grouping_Mesor_Model'] = df_gbl.loc[0, 'Grouping_Mesor_Model'] if (_has_grp and 'Grouping_Mesor_Model' in df_gbl.columns) else ""
                     row_dict['Grouping_Mesor_Confidence'] = df_gbl.loc[0, 'Grouping_Mesor_Confidence'] if _has_grp else ""
                     row_dict['Grouping_Mesor_IC_Gap'] = df_gbl.loc[0, 'Grouping_Mesor_IC_Gap'] if _has_grp else ""
 
@@ -2293,8 +2315,8 @@ def main():
             # Final column sorting
             col_order = [
                 'Gene', 'p_global_rhythm', 'p_rhythm_diff', 'p_mesor_diff',
-                'Grouping', 'Grouping_Confidence', 'Grouping_IC_Gap',
-                'Grouping_Mesor', 'Grouping_Mesor_Confidence', 'Grouping_Mesor_IC_Gap',
+                'Grouping', 'Grouping_Model', 'Grouping_Confidence', 'Grouping_IC_Gap',
+                'Grouping_Mesor', 'Grouping_Mesor_Model', 'Grouping_Mesor_Confidence', 'Grouping_Mesor_IC_Gap',
                 'Group', 'P-value', 'P-value (FDR)', 'R2', 'Mesor', 'Amplitude', 'amp_limit', 'Phase', 'Phase (h:min)', 'Interval', 'Period',
                 'Probability',
                 'Pair', 'Delta_Mesor', 'p_diff_mesor', 'p_diff_mesor_FDR', 'Mesor_Change',
