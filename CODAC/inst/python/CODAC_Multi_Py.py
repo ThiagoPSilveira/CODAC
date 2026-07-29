@@ -640,17 +640,15 @@ def _rhythm_code(model, all_groups):
 #-------------------------------------------------------------------
 # Rhythm group
 #-------------------------------------------------------------------
-def select_rhythm_grouping(df_gene, all_groups, criterion='BIC',
+def select_rhythm_grouping(df_gene, all_groups, rhythmic_set, criterion='BIC',
                            time_col='Time', expr_col='Value', group_col='Group'):
-    # Scores every rhythm model for one target and returns
-    # (label, confidence, ic_gap):
-    #   label      -- the winning grouping
-    #   confidence -- the winning model's criterion weight in [0, 1]
-    #                 (exp(-0.5*dIC) normalized), the "strength of evidence"
-    #   ic_gap     -- IC margin to the runner-up (small = close call)
+    # Chooses how the RHYTHMIC groups (rhythmic_set, decided by the per-group
+    # multi-criteria tier) share their rhythm, by model selection over the
+    # partitions of rhythmic_set. Groups outside rhythmic_set are arrhythmic in
+    # every candidate. Returns (label, confidence, ic_gap, model_code).
     d = df_gene[[time_col, expr_col, group_col]].dropna(subset=[expr_col])
     if d.empty:
-        return "Undetermined", np.nan, np.nan
+        return "Undetermined", np.nan, np.nan, ""
     t = d[time_col].to_numpy(dtype=float)
     y = d[expr_col].to_numpy(dtype=float)
     group_arr = d[group_col].to_numpy()
@@ -658,11 +656,13 @@ def select_rhythm_grouping(df_gene, all_groups, criterion='BIC',
     cos = np.cos(omega * t)
     sin = np.sin(omega * t)
 
-    models = enumerate_rhythm_models(all_groups)
+    rset = frozenset(rhythmic_set)
+    models = [(rset, tuple(sorted(tuple(sorted(b)) for b in part)))
+              for part in set_partitions(list(rhythmic_set))]
     ics = np.array([_ic_from_design(_rhythm_design(group_arr, cos, sin, all_groups, m), y, criterion)
                     for m in models], dtype=float)
     if not np.any(np.isfinite(ics)):
-        return "Undetermined", np.nan, np.nan
+        return "Undetermined", np.nan, np.nan, ""
 
     order = np.argsort(ics)
     best = int(order[0])
@@ -1780,6 +1780,7 @@ def main():
         plot_data_gene = []
         df_gene_rows = []
         groups_processed = 0
+        gene_counters = {}   # per-group multi-criteria score (tier) for this gene
 
         # We use Pandas' groupby feature.
         for group_name in groups:
@@ -1924,6 +1925,7 @@ def main():
                     'amp_limit': float(amp_limit)
                 }
                 results.append(result_row)
+                gene_counters[group_name] = int(counter)
 
                 X_interp = np.linspace(float(np.min(X)), float(np.max(X)), 400)
                 y_interp = circular_function(X_interp, *params)
@@ -1957,30 +1959,39 @@ def main():
                 # 3. Multi-group GROUPING selection (two independent axes).
                 groups_in_gene = sorted(df_gene['group'].unique())
 
-                # Rhythm axis, gated by the global rhythm-difference test.
-                # Four outcomes, kept distinct on purpose:
-                #   (a) p_rhythm_diff is NaN  -> the omnibus could not be computed
-                #       (e.g. a group with too few valid points). This is NOT the
-                #       same as "no difference", so it gets its own label.
-                #   (b) p_rhythm_diff significant -> search for the best grouping.
-                #   (c) p_rhythm_diff not significant -> the rhythm is shared; then
-                #       split by p_global_rhythm into all-rhythmic vs all-arrhythmic
-                #       (a target with no rhythm at all is very different from one
-                #       with a conserved rhythm, even though both are "all equal").
+                # Rhythm axis. The per-group multi-criteria tier decides WHICH
+                # groups are rhythmic (R = groups reaching `rhythmicity_cutoff`,
+                # the same bar CODA uses everywhere -- so a LOW group is NOT
+                # rhythmic). Model selection then only decides HOW the rhythmic
+                # groups share their rhythm:
+                #   |R| == 0            -> "All groups arrhythmic".
+                #   |R| == 1            -> that group rhythmic, the rest arrhythmic.
+                #   |R| >= 2, p NaN     -> "Undetermined" (can't test the sharing).
+                #   |R| >= 2, p <= a    -> search the partitions of R.
+                #   |R| >= 2, p  > a    -> R shares one common rhythm.
                 p_gate = global_test_row.get('p_rhythm_diff', np.nan)
-                p_any = global_test_row.get('p_global_rhythm', np.nan)
-                if pd.isna(p_gate):
+                _cut_rank = {'ARRHYTHMIC': 0, 'LOW': 1, 'MEDIUM': 2, 'HIGH': 3, 'EXTREMELY HIGH': 4}.get(str(rhythmicity_cutoff).upper(), 3)
+                R = [g for g in groups_in_gene if gene_counters.get(g, 0) >= _cut_rank]
+
+                if len(R) >= 2 and pd.isna(p_gate):
                     g_lab, g_conf, g_gap, g_code = "Undetermined (insufficient data)", np.nan, np.nan, ""
-                elif p_gate <= p_threshold:
+                elif len(R) >= 2 and (p_gate <= p_threshold):
                     g_lab, g_conf, g_gap, g_code = select_rhythm_grouping(
-                        df_gene, groups_in_gene, criterion=selection_criterion,
+                        df_gene, groups_in_gene, R, criterion=selection_criterion,
                         time_col='time', expr_col='expr', group_col='group')
-                elif (not pd.isna(p_any)) and (p_any <= p_threshold):
-                    g_lab, g_conf, g_gap = "All groups rhythmic (shared rhythm)", np.nan, np.nan
-                    g_code = _rhythm_code((frozenset(groups_in_gene), (tuple(sorted(groups_in_gene)),)), groups_in_gene)
                 else:
-                    g_lab, g_conf, g_gap = "All groups arrhythmic", np.nan, np.nan
-                    g_code = _rhythm_code((frozenset(), tuple()), groups_in_gene)
+                    # |R| <= 1, or |R| >= 2 with no significant difference:
+                    # the winning model is simply R as a single rhythmic block
+                    # (empty R => arrhythmic in all).
+                    model = (frozenset(R), (tuple(sorted(R)),) if R else tuple())
+                    if len(R) == 0:
+                        g_lab = "All groups arrhythmic"
+                    elif len(R) == len(groups_in_gene):
+                        g_lab = "All groups rhythmic (shared rhythm)"
+                    else:
+                        g_lab = _rhythm_label(model, groups_in_gene)
+                    g_conf, g_gap = np.nan, np.nan
+                    g_code = _rhythm_code(model, groups_in_gene)
                 global_test_row['Grouping'] = g_lab
                 global_test_row['Grouping_Confidence'] = g_conf
                 global_test_row['Grouping_IC_Gap'] = g_gap
