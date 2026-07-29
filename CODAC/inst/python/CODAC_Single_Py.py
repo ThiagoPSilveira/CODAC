@@ -1349,7 +1349,7 @@ def main():
 
     # 3. Save to Excel
     # Ensure the file extension is updated to .xlsx
-    excel_file = os.path.join(results_dir, 'CODA_Results.xlsx')
+    excel_file = os.path.join(results_dir, 'CODAC_Single_Results.xlsx')
 
     try:
         # Formatted export: auto-fit column widths + centered cells (xlsxwriter),

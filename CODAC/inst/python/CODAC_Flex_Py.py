@@ -904,7 +904,7 @@ def main():
         time_label = str(getattr(__main__, 'time_label', 'ZT'))
 
         # Output filename for the injected case (R)
-        result_file = os.path.join(results_dir, "CODA_Flex_Results.csv")
+        result_file = os.path.join(results_dir, "CODAC_Flex_Results.csv")
 
         # Translates the R DataFrame into Python's internal dictionary.
         gene_col = df_input.columns[0]
@@ -1691,7 +1691,7 @@ def main():
     plt.setp(texts, size=12, weight="bold")
     plt.setp(autotexts, size=11, weight="bold", color="black")
 
-    ax_pie.set_title("Distribution of Rhythmic Patterns (CODA Flex)", fontsize=14, fontweight='bold', pad=20)
+    ax_pie.set_title("Distribution of Rhythmic Patterns (CODAC Flex)", fontsize=14, fontweight='bold', pad=20)
 
     # Save the image to the plots folder.
     plt.tight_layout()

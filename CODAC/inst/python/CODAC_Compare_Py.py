@@ -1374,7 +1374,7 @@ def main():
         }
 
         df_long, df_raw = read_data_file(None, input_config, df_raw=__main__.df_input)
-        result_file = os.path.join(results_dir, "CODA_Compare_Results.csv")
+        result_file = os.path.join(results_dir, "CODAC_Compare_Results.csv")
 
     else:
         print("\n[INFO] R environment not detected. Running direct in Python.")

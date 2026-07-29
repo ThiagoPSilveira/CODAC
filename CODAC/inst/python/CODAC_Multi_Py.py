@@ -204,7 +204,7 @@ def read_input_file(input_file):
         raise ValueError(
             f'The number of listed times ({len(timepoints)}) does not match the defined "Number of Timepoints" ({n_timepoints}).')
     if len(groups) < 2:
-        raise ValueError('For CODACplus, you must define at least 2 groups in Input.txt.')
+        raise ValueError('For CODAC_Multi, you must define at least 2 groups in Input.txt.')
 
     # The return now includes comparisons and genes for plotting.
     return {
@@ -495,7 +495,7 @@ def fit_multigroup_models(df_gene, expr_col='Value', group_col='Group'):
         return None, None, None
 
 # -------------------------------------------------------------------
-# Compute Differential Statistics (The "CODACplus" Heart)
+# Compute Differential Statistics (The "CODAC_Multi" Heart)
 # -------------------------------------------------------------------
 def get_global_tests(model0, model1, model2, group_col='Group'):
     # Performs model comparison tests (Extra Sum-of-Squares F-test).
@@ -522,10 +522,10 @@ def get_global_tests(model0, model1, model2, group_col='Group'):
     return out
 
 # ===================================================================
-# MULTI-GROUP GROUPING SELECTION (CODACplus)
+# MULTI-GROUP GROUPING SELECTION (CODAC_Multi)
 # -------------------------------------------------------------------
 # Instead of only reading pairwise contrasts (which do not compose when
-# they are non-transitive: G1~G2, G2~G3, but G1!=G3), CODACplus finds the
+# they are non-transitive: G1~G2, G2~G3, but G1!=G3), CODAC_Multi finds the
 # single best GROUPING of the groups by model selection -- the same spirit
 # as dryR, but on the CODA cosinor/GLM engine.
 #
@@ -1623,7 +1623,7 @@ def main():
         }
 
         df_long, df_raw = read_data_file(None, input_config, df_raw=__main__.df_input)
-        result_file = os.path.join(results_dir, "CODACplus_Results.csv")
+        result_file = os.path.join(results_dir, "CODAC_Multi_Results.csv")
 
     else:
         print("\n[INFO] R environment not detected. Running direct in Python.")
@@ -1696,7 +1696,7 @@ def main():
     rhythmicity_cutoff = current_vars.get('rhythmicity_cutoff', 'HIGH')
     p_value_comparison = current_vars.get('p_value_comparison', 'RAW')
 
-    # Information criterion for the multi-group GROUPING selection (CODACplus).
+    # Information criterion for the multi-group GROUPING selection (CODAC_Multi).
     #   'BIC'  (default) -- stronger complexity penalty, more conservative about
     #                       calling a difference (aligned with dryR and with the
     #                       anti-over-calling philosophy). Recommended.
@@ -1942,16 +1942,28 @@ def main():
                 # 3. Multi-group GROUPING selection (two independent axes).
                 groups_in_gene = sorted(df_gene['group'].unique())
 
-                # Rhythm axis, gated by the global rhythm-difference test: only
-                # search for a non-trivial grouping when the omnibus test fires;
-                # otherwise the rhythm is shared across all groups.
+                # Rhythm axis, gated by the global rhythm-difference test.
+                # Four outcomes, kept distinct on purpose:
+                #   (a) p_rhythm_diff is NaN  -> the omnibus could not be computed
+                #       (e.g. a group with too few valid points). This is NOT the
+                #       same as "no difference", so it gets its own label.
+                #   (b) p_rhythm_diff significant -> search for the best grouping.
+                #   (c) p_rhythm_diff not significant -> the rhythm is shared; then
+                #       split by p_global_rhythm into all-rhythmic vs all-arrhythmic
+                #       (a target with no rhythm at all is very different from one
+                #       with a conserved rhythm, even though both are "all equal").
                 p_gate = global_test_row.get('p_rhythm_diff', np.nan)
-                if (not pd.isna(p_gate)) and (p_gate <= p_threshold):
+                p_any = global_test_row.get('p_global_rhythm', np.nan)
+                if pd.isna(p_gate):
+                    g_lab, g_conf, g_gap = "Undetermined (insufficient data)", np.nan, np.nan
+                elif p_gate <= p_threshold:
                     g_lab, g_conf, g_gap = select_rhythm_grouping(
                         df_gene, groups_in_gene, criterion=selection_criterion,
                         time_col='time', expr_col='expr', group_col='group')
+                elif (not pd.isna(p_any)) and (p_any <= p_threshold):
+                    g_lab, g_conf, g_gap = "All groups rhythmic (shared rhythm)", np.nan, np.nan
                 else:
-                    g_lab, g_conf, g_gap = "All groups equal (no significant rhythm difference)", np.nan, np.nan
+                    g_lab, g_conf, g_gap = "All groups arrhythmic", np.nan, np.nan
                 global_test_row['Grouping'] = g_lab
                 global_test_row['Grouping_Confidence'] = g_conf
                 global_test_row['Grouping_IC_Gap'] = g_gap
@@ -1963,12 +1975,14 @@ def main():
                     df_gene, groups_in_gene,
                     time_col='time', expr_col='expr', group_col='group')
                 global_test_row['p_mesor_diff'] = p_mesor
-                if (not pd.isna(p_mesor)) and (p_mesor <= p_threshold):
+                if pd.isna(p_mesor):
+                    m_lab, m_conf, m_gap = "Undetermined (insufficient data)", np.nan, np.nan
+                elif p_mesor <= p_threshold:
                     m_lab, m_conf, m_gap = select_mesor_grouping(
                         df_gene, groups_in_gene, criterion=selection_criterion,
                         time_col='time', expr_col='expr', group_col='group')
                 else:
-                    m_lab, m_conf, m_gap = "All groups equal (no significant mesor difference)", np.nan, np.nan
+                    m_lab, m_conf, m_gap = "All groups equal (same baseline)", np.nan, np.nan
                 global_test_row['Grouping_Mesor'] = m_lab
                 global_test_row['Grouping_Mesor_Confidence'] = m_conf
                 global_test_row['Grouping_Mesor_IC_Gap'] = m_gap
