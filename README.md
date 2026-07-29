@@ -97,6 +97,32 @@ via the `dec` argument in the run script. If wrong, numbers are read as text and
 every target is skipped (or the column count "explodes"). If results look empty
 or the column count is off, switch `dec` between `"."` and `","` and rerun.
 
+### Missing samples — `codac_check_columns()`
+
+The engines read the value columns **by position** and expect exactly
+`groups × timepoints × replicates` of them. If some samples are physically absent
+from the file, the count no longer matches and the analysis stops with an
+"expected N, found M" error.
+
+If your value columns are named `Group_ZT<time>_<rep>` (e.g. `CON_ZT6_1`), run
+`codac_check_columns()` once before the analysis. It diagnoses the usual culprits
+(duplicate names, stray whitespace, group/timepoint typos), then rebuilds the full
+expected set of columns — filling any missing sample with `NaN` (masked by
+`missing_data_action = 'KEEP'`) and restoring the exact order the engine needs:
+
+```r
+expression_data <- codac_check_columns(
+  expression_data,
+  groups         = c("CON", "MMI", "T3"),
+  timepoints     = c(2, 6, 10, 14, 18, 22),
+  n_observations = 4
+)
+analysis_results <- codac_multi(data = expression_data, ...)
+```
+
+It stops (without changing anything) if it finds mislabeled columns, so real data
+is never silently replaced by fake `NaN` columns.
+
 ---
 
 ## 4. Running an analysis
@@ -252,10 +278,10 @@ rhythm, and, separately, which share the same baseline:
 
 | Column | Meaning |
 |---|---|
-| `Grouping` | The winning **rhythm** grouping, e.g. `{G1,G2} != {G3}` (G1 and G2 share a rhythm, G3 differs), `{G1,G2,G3} (all equal)`, or with non-rhythmic groups annotated (`{G1,G2} ; arrhythmic: G3`). Searched only when `p_rhythm_diff` is significant; otherwise it reads `All groups equal (no significant rhythm difference)`. |
+| `Grouping` | The winning **rhythm** grouping. When `p_rhythm_diff` is significant, the search runs and returns the best configuration, e.g. `{G1,G2} != {G3}` (G1 and G2 share a rhythm, G3 differs) or `{G1,G2} ; arrhythmic: G3` (non-rhythmic groups annotated). When it is **not** significant, no split is searched and the label instead says whether the shared behavior is a rhythm or none: `All groups rhythmic (shared rhythm)` or `All groups arrhythmic` (decided by `p_global_rhythm`). When the omnibus test could not be computed (e.g. a group with too few valid points), it reads `Undetermined (insufficient data)` — never silently merged into the "equal" cases. |
 | `Grouping_Confidence` | The strength of evidence for that grouping, in `[0, 1]` (the criterion weights of all candidate models sum to 1). Near 1 = decisive; low = the top models were close (an uncertain call). `NA` when no grouping was searched. |
 | `Grouping_IC_Gap` | The information-criterion margin to the runner-up model. A small gap is another sign of a close call. |
-| `Grouping_Mesor`, `Grouping_Mesor_Confidence`, `Grouping_Mesor_IC_Gap` | Exactly the same three, but for the **baseline (mesor)** axis, gated by `p_mesor_diff`. |
+| `Grouping_Mesor`, `Grouping_Mesor_Confidence`, `Grouping_Mesor_IC_Gap` | Exactly the same three, but for the **baseline (mesor)** axis, gated by `p_mesor_diff`. Its "no difference" label is `All groups equal (same baseline)`, and `Undetermined (insufficient data)` when the mesor omnibus could not be computed. |
 
 The grouping is chosen by **model selection**: CODAC fits every possible
 configuration of rhythm-sharing across the groups and keeps the one with the best
