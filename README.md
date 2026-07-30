@@ -2,16 +2,15 @@
 
 **Circadian Oscillation Detection, Analysis and Comparison**
 
-CODAC is a single R package that bundles four tools for circadian time-series
-analysis, all sharing one validated Python analysis engine (run from R, no manual
-Python setup needed):
+CODAC is a single R package that combines four tools for circadian time-series
+analysis.
 
 | Function | Tool | Use it when… |
 |---|---|---|
-| `codac_single()` | **Single** | You have **one group** and want per-target rhythmicity (fixed 24 h period). |
+| `codac_single()` | **Single** | You have **one group** and want per-target rhythmicity. |
 | `codac_flex()` | **Flex** | You want the method to **choose the waveform** (standard, linear trend, damped, rapidly damped) — good for bioluminescence and multi-cycle data. |
 | `codac_compare()` | **Compare** | You have **two or more groups** and want **pairwise** differential rhythmicity (group 1 vs group 2, etc.). |
-| `codac_multi()` | **Multi** | You have **several groups** and want the single best **grouping** of them (which groups share a rhythm / a baseline), à la dryR but on the CODA engine. |
+| `codac_multi()` | **Multi** | You have **several groups** and to avoid several pairwise comparisons, CODAC groups the genes into different models |
 
 > This is a Python analysis engine wrapped as an R package. **You do not need to
 > install Python or any Python library by hand** — the package sets that up
@@ -84,13 +83,13 @@ For **Compare** and **Multi** (several groups): the value columns are
 `groups × timepoints × replicates`, ordered **by group** — for each group, all
 timepoints, each with its replicates.
 
-### ⚠️ Group order (Compare / Multi)
+### Group order (Compare / Multi)
 
 The `groups` argument order **must match** the order of the column blocks in the
 file, otherwise values are assigned to the wrong group. Group names in `groups`
 and `comparisons` must also match **exactly** (watch for stray underscores).
 
-### ⚠️ Decimal separator — the most common mistake
+### Decimal separator
 
 Numbers use **either** a period (`12.34`) **or** a comma (`12,34`); tell R which
 via the `dec` argument in the run script. If wrong, numbers are read as text and
@@ -165,16 +164,14 @@ selection: `'BIC'` (default, conservative) or `'AICc'` (more sensitive). See §6
 
 ## 5. The amplitude filter (`amp_stringency`)
 
-A rhythm is only trusted if its amplitude stands out from noise — a target can be
-statistically significant yet oscillate too little to matter biologically. CODAC
-applies an **adaptive** per-target threshold (reported as `Amp. Minimum`), based
+CODAC applies an **adaptive** per-target threshold (reported as `Amp. Minimum`), based
 on the target's expression level and variability, with an absolute noise floor.
 One dial controls how demanding it is:
 
 | `amp_stringency` | Effect |
 |---|---|
 | `0.0` | Filter off — amplitude never rejects |
-| `0.5` | Default, validated |
+| `0.5` | Default |
 | `1.0` | Strictest — requires twice the default amplitude |
 
 A target passes the amplitude criterion when `Amplitude ≥ Amp. Minimum`.
@@ -206,8 +203,7 @@ These describe the fitted rhythm of each target (per group, for Compare/Multi):
 | `Interval` | `In` / `Out` flag of the waveform-prominence test: whether the fitted curve sweeps **beyond** the inter-percentile band of the observed data (`Out` = prominent oscillation). |
 | `Probability` | The rhythmicity tier, from a 0–4 count of criteria met (significance, R², amplitude, prominence): `EXTREMELY HIGH` (4), `HIGH` (3), `MEDIUM` (2), `LOW` (1), `ARRHYTHMIC` (0). This multi-criteria tier — not the p-value alone — is CODAC's rhythmicity call. |
 
-> **How rhythmicity is decided.** Rather than trusting the p-value alone (which
-> over-calls rhythms in large datasets), CODAC scores four independent criteria —
+> **How rhythmicity is decided.** Rather than trusting the p-value alone, CODAC scores four independent criteria —
 > significance, effect size (R²), a biologically meaningful amplitude, and
 > waveform prominence — and reports how many were met as the `Probability` tier.
 
