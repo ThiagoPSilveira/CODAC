@@ -937,6 +937,94 @@ def assign_categories(df_comparisons, p_source='RAW', alpha=0.05):
     return df_comparisons
 
 #-------------------------------------------------------------------
+# Reconcile the pairwise Biological_Category with the grouping model.
+# The grouping is authoritative for "changed vs unchanged": for a pair of
+# BOTH-rhythmic groups, same rhythm-block -> Cat 4 (unchanged); different blocks
+# -> Cat 5/6/7 (changed), with the specific component taken from the pairwise
+# amplitude/phase p-values (and, in the rare case the grouping says different but
+# neither p is significant, the smaller-p component). The raw Delta_* / p_diff_*
+# columns are left untouched so the underlying tests stay visible.
+#-------------------------------------------------------------------
+def reconcile_categories_with_grouping(df_comparisons, df_global, groups,
+                                       alpha=0.05, p_source='RAW'):
+    if (df_comparisons is None or df_comparisons.empty or
+            df_global is None or df_global.empty or
+            'Grouping_Model' not in df_global.columns):
+        return df_comparisons
+
+    gene_model = dict(zip(df_global['Gene'], df_global['Grouping_Model']))
+    models_cache = enumerate_rhythm_models(groups)
+
+    use_fdr = str(p_source).strip().upper() in ('FDR', 'ADJ', 'ADJUSTED')
+    amp_col = 'p_diff_amplitude_FDR' if use_fdr else 'p_diff_amplitude'
+    phase_col = 'p_diff_phase_FDR' if use_fdr else 'p_diff_phase'
+    if amp_col not in df_comparisons.columns:
+        amp_col = 'p_diff_amplitude'
+    if phase_col not in df_comparisons.columns:
+        phase_col = 'p_diff_phase'
+
+    CAT = {4: "Cat 4: rhythmic_both_unchanged",
+           5: "Cat 5: rhythmic_with_changes_only_amp",
+           6: "Cat 6: rhythmic_with_changes_only_phase",
+           7: "Cat 7: rhythmic_with_changes_amp_phase"}
+
+    def _pnum(v):
+        try:
+            return float(v)
+        except (TypeError, ValueError):
+            return np.nan
+
+    def _relation(code, gA, gB):
+        if not isinstance(code, str) or not code.startswith('M'):
+            return None
+        try:
+            rset, blocks = models_cache[int(code[1:]) - 1]
+        except (ValueError, IndexError):
+            return None
+        if gA not in rset or gB not in rset:
+            return None                      # not both rhythmic -> leave as is
+        for b in blocks:
+            if gA in b and gB in b:
+                return 'same'
+        return 'diff'
+
+    genes = df_comparisons['Gene'].tolist()
+    pairs = df_comparisons['Pair'].tolist()
+    amps = df_comparisons[amp_col].tolist()
+    phases = df_comparisons[phase_col].tolist()
+    cats = df_comparisons['Biological_Category'].tolist()
+
+    for i in range(len(cats)):
+        pair = str(pairs[i])
+        if " vs " not in pair:
+            continue
+        gA, gB = [x.strip() for x in pair.split(" vs ", 1)]
+        rel = _relation(gene_model.get(genes[i], ""), gA, gB)
+        if rel == 'same':
+            cats[i] = CAT[4]
+        elif rel == 'diff':
+            ap, pp = _pnum(amps[i]), _pnum(phases[i])
+            amp_sig = (not np.isnan(ap)) and ap < alpha
+            phase_sig = (not np.isnan(pp)) and pp < alpha
+            if amp_sig and phase_sig:
+                cats[i] = CAT[7]
+            elif amp_sig:
+                cats[i] = CAT[5]
+            elif phase_sig:
+                cats[i] = CAT[6]
+            elif np.isnan(ap) and np.isnan(pp):
+                cats[i] = CAT[7]             # no info -> both changed
+            elif np.isnan(pp) or (not np.isnan(ap) and ap <= pp):
+                cats[i] = CAT[5]            # conflict -> smaller-p component
+            else:
+                cats[i] = CAT[6]
+        # rel is None -> leave the category untouched
+
+    df_comparisons = df_comparisons.copy()
+    df_comparisons['Biological_Category'] = cats
+    return df_comparisons
+
+#-------------------------------------------------------------------
 # Pairwise Post-hoc Comparison (Wald Tests)
 #-------------------------------------------------------------------
 def build_pairwise_comparisons(df_results, df_long, comparisons_to_run=None, rhythmicity_cutoff='HIGH'):
@@ -2498,6 +2586,11 @@ def main():
                             df_global.at[idx, 'Grouping_Mesor_IC_Gap'] = np.nan
                             df_global.at[idx, 'Grouping_Mesor_Model'] = _mesor_code(blocks, ag)
                 df_global = df_global.drop(columns=['_R_rhythm', '_all_groups'], errors='ignore')
+
+            # Make the pairwise categories consistent with the final grouping.
+            df_comparisons = reconcile_categories_with_grouping(
+                df_comparisons, df_global, groups,
+                alpha=p_threshold, p_source=p_value_comparison)
 
             df_export_grouped = df_export.groupby('Gene')
             df_comp_grouped = df_comparisons.groupby('Gene') if not df_comparisons.empty else None
