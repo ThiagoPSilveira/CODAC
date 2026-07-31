@@ -567,6 +567,26 @@ def add_pairwise_fdr(df_comparisons, alpha_method='fdr_bh'):
     return df_comparisons
 
 #-------------------------------------------------------------------
+# Benjamini-Hochberg FDR for the genome-wide GLOBAL p-values
+# (p_global_rhythm, p_rhythm_diff, and -- in CODAC_Multi -- p_mesor_diff).
+# These tests run once per target across all targets, so they carry the usual
+# multiplicity burden; the *_FDR columns let the user gate on the corrected
+# value. NaN p-values (test not computable) stay NaN and are excluded from the
+# correction.
+#-------------------------------------------------------------------
+def add_global_fdr(df_global, cols):
+    for col in cols:
+        if col not in df_global.columns:
+            continue
+        vals = pd.to_numeric(df_global[col], errors='coerce')
+        out = pd.Series(np.nan, index=df_global.index, dtype=float)
+        mask = vals.notna()
+        if mask.sum() > 0:
+            out.loc[mask] = multipletests(vals[mask].values, method='fdr_bh')[1]
+        df_global[col + '_FDR'] = out
+    return df_global
+
+#-------------------------------------------------------------------
 # (Re)assign the biological categories from a chosen p-value source
 #-------------------------------------------------------------------
 def assign_categories(df_comparisons, p_source='RAW', alpha=0.05):
@@ -1286,7 +1306,7 @@ def _export_excel_formatted(df, file_path):
     # ==========================================
     # 4. Merge Global Columns and Color
     # ==========================================
-    columns_gene = ['Target', 'p_global_rhythm', 'p_rhythm_diff']
+    columns_gene = ['Target', 'p_global_rhythm', 'p_global_rhythm_FDR', 'p_rhythm_diff', 'p_rhythm_diff_FDR']
 
     for col_name in columns_gene:
         if col_name not in df.columns: continue
@@ -1895,6 +1915,8 @@ def main():
             # 1. Initialize dataframes tolerating that they might be empty
             df_global = pd.DataFrame(global_results).rename(
                 columns={'gene': 'Gene'}) if global_results else pd.DataFrame()
+            if not df_global.empty:
+                df_global = add_global_fdr(df_global, ['p_global_rhythm', 'p_rhythm_diff'])
 
             df_export_grouped = df_export.groupby('Gene')
             df_comp_grouped = df_comparisons.groupby('Gene') if not df_comparisons.empty else None
@@ -1925,7 +1947,9 @@ def main():
                     # -- 1. Global Fill --
                     row_dict['Gene'] = gene
                     row_dict['p_global_rhythm'] = df_gbl.loc[0, 'p_global_rhythm'] if not df_gbl.empty else ""
+                    row_dict['p_global_rhythm_FDR'] = df_gbl.loc[0, 'p_global_rhythm_FDR'] if (not df_gbl.empty and 'p_global_rhythm_FDR' in df_gbl.columns) else ""
                     row_dict['p_rhythm_diff'] = df_gbl.loc[0, 'p_rhythm_diff'] if not df_gbl.empty else ""
+                    row_dict['p_rhythm_diff_FDR'] = df_gbl.loc[0, 'p_rhythm_diff_FDR'] if (not df_gbl.empty and 'p_rhythm_diff_FDR' in df_gbl.columns) else ""
 
                     # -- 2. Individual Fill --
                     if i < len(df_grp):
@@ -1975,7 +1999,7 @@ def main():
 
             # Final column sorting
             col_order = [
-                'Gene', 'p_global_rhythm', 'p_rhythm_diff',
+                'Gene', 'p_global_rhythm', 'p_global_rhythm_FDR', 'p_rhythm_diff', 'p_rhythm_diff_FDR',
                 'Group', 'P-value', 'P-value (FDR)', 'R2', 'Mesor', 'Amplitude', 'amp_limit', 'Phase', 'Phase (h:min)', 'Interval', 'Period',
                 'Probability',
                 'Pair', 'Delta_Mesor', 'p_diff_mesor', 'p_diff_mesor_FDR', 'Mesor_Change',
@@ -1998,7 +2022,7 @@ def main():
             # tested" ("") and "NLS failed" (NaN) sentinels both become NaN, which
             # is the correct numeric representation of a missing value.
             numeric_cols = [
-                'p_global_rhythm', 'p_rhythm_diff',
+                'p_global_rhythm', 'p_global_rhythm_FDR', 'p_rhythm_diff', 'p_rhythm_diff_FDR',
                 'P-value', 'P-value (FDR)',
                 'R2', 'Mesor', 'Amplitude', 'Amp. Minimum', 'Phase', 'Phase (h:min)', 'Period',
                 'Delta_Mesor', 'p_diff_mesor', 'p_diff_mesor_FDR',
@@ -2204,7 +2228,7 @@ def main():
         df_clean_for_r = df_clean_for_r.replace('', float('nan'))
 
         # Fill in the blanks by repeating the values from the three global columns.
-        globals_columns = ['Target', 'p_global_rhythm', 'p_rhythm_diff']
+        globals_columns = ['Target', 'p_global_rhythm', 'p_global_rhythm_FDR', 'p_rhythm_diff', 'p_rhythm_diff_FDR']
         for col in globals_columns:
             if col in df_clean_for_r.columns:
                 df_clean_for_r[col] = df_clean_for_r[col].ffill()

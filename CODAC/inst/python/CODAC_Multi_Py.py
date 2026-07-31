@@ -831,6 +831,23 @@ def add_pairwise_fdr(df_comparisons, alpha_method='fdr_bh'):
     return df_comparisons
 
 #-------------------------------------------------------------------
+# Benjamini-Hochberg FDR for the genome-wide GLOBAL p-values
+# (p_global_rhythm, p_rhythm_diff, p_mesor_diff). NaN p-values stay NaN and are
+# excluded from the correction.
+#-------------------------------------------------------------------
+def add_global_fdr(df_global, cols):
+    for col in cols:
+        if col not in df_global.columns:
+            continue
+        vals = pd.to_numeric(df_global[col], errors='coerce')
+        out = pd.Series(np.nan, index=df_global.index, dtype=float)
+        mask = vals.notna()
+        if mask.sum() > 0:
+            out.loc[mask] = multipletests(vals[mask].values, method='fdr_bh')[1]
+        df_global[col + '_FDR'] = out
+    return df_global
+
+#-------------------------------------------------------------------
 # (Re)assign the biological categories from a chosen p-value source
 #-------------------------------------------------------------------
 def assign_categories(df_comparisons, p_source='RAW', alpha=0.05):
@@ -1548,7 +1565,7 @@ def _export_excel_formatted(df, file_path):
     # ==========================================
     # 4. Merge Global Columns and Color
     # ==========================================
-    columns_gene = ['Target', 'p_global_rhythm', 'p_rhythm_diff', 'p_mesor_diff',
+    columns_gene = ['Target', 'p_global_rhythm', 'p_global_rhythm_FDR', 'p_rhythm_diff', 'p_rhythm_diff_FDR', 'p_mesor_diff', 'p_mesor_diff_FDR',
                     'Grouping', 'Grouping_Model', 'Grouping_Confidence', 'Grouping_IC_Gap',
                     'Grouping_Mesor', 'Grouping_Mesor_Model', 'Grouping_Mesor_Confidence', 'Grouping_Mesor_IC_Gap']
 
@@ -1722,6 +1739,19 @@ def main():
         print(f"[WARN] Unknown selection_criterion '{selection_criterion}'; falling back to 'BIC'.")
         selection_criterion = 'BIC'
     print(f"[INFO] Grouping selection criterion: {selection_criterion}.")
+
+    # Which p-value drives the GLOBAL gates (p_rhythm_diff / p_mesor_diff):
+    #   'FDR' (default) -- Benjamini-Hochberg corrected across all targets, the
+    #                      right choice for a genome-wide screen (the gate tests
+    #                      run once per target over thousands of targets).
+    #   'RAW'           -- uncorrected per-target p-values.
+    # Both raw and *_FDR columns are always exported; only the gate DECISION
+    # switches. (In codac_compare() these globals are reported but do not gate.)
+    p_value_global = str(current_vars.get('p_value_global', 'FDR')).strip().upper()
+    if p_value_global not in ('RAW', 'FDR'):
+        print(f"[WARN] Unknown p_value_global '{p_value_global}'; falling back to 'FDR'.")
+        p_value_global = 'FDR'
+    print(f"[INFO] Global-gate p-value source: {p_value_global}.")
 
     missing_data_action = current_vars.get('missing_data_action', 'KEEP')  # 'KEEP', 'IMPUTE' or 'REMOVE'
     exclude_medium = current_vars.get('exclude_medium', True)
@@ -1996,6 +2026,9 @@ def main():
                 global_test_row['Grouping_Confidence'] = g_conf
                 global_test_row['Grouping_IC_Gap'] = g_gap
                 global_test_row['Grouping_Model'] = g_code
+                # Kept for the post-loop FDR gate override (dropped before output).
+                global_test_row['_R_rhythm'] = ",".join(sorted(R))
+                global_test_row['_all_groups'] = ",".join(sorted(groups_in_gene))
 
                 # Mesor axis (baseline), gated by its own omnibus test -- symmetric
                 # to the rhythm axis, so a baseline grouping is only searched when
@@ -2236,6 +2269,40 @@ def main():
             df_global = pd.DataFrame(global_results).rename(
                 columns={'gene': 'Gene'}) if global_results else pd.DataFrame()
 
+            # Genome-wide FDR on the global gate p-values, then -- if the user
+            # gates on FDR (default) -- re-close the gate for targets that pass
+            # the raw threshold but fail the corrected one. Because BH is
+            # monotone (FDR >= raw), a target can only move from "searched split"
+            # back to "shared", never the other way, so this is a one-directional
+            # override of the in-loop (raw-gated) decision.
+            if not df_global.empty:
+                df_global = add_global_fdr(df_global, ['p_global_rhythm', 'p_rhythm_diff', 'p_mesor_diff'])
+                if p_value_global == 'FDR':
+                    def _split(s):
+                        s = "" if (s is None or (isinstance(s, float) and pd.isna(s))) else str(s)
+                        return [x for x in s.split(",") if x]
+                    for idx in df_global.index:
+                        ag = _split(df_global.at[idx, '_all_groups']) if '_all_groups' in df_global.columns else []
+                        # --- rhythm axis: search ran (conf not NaN) but FDR gate now closed ---
+                        pr = df_global.at[idx, 'p_rhythm_diff_FDR'] if 'p_rhythm_diff_FDR' in df_global.columns else np.nan
+                        if pd.notna(df_global.at[idx, 'Grouping_Confidence']) and pd.notna(pr) and pr > p_threshold:
+                            R = _split(df_global.at[idx, '_R_rhythm'])
+                            model = (frozenset(R), (tuple(sorted(R)),) if R else tuple())
+                            df_global.at[idx, 'Grouping'] = ("All groups rhythmic (shared rhythm)"
+                                                             if R and len(R) == len(ag) else _rhythm_label(model, ag))
+                            df_global.at[idx, 'Grouping_Confidence'] = np.nan
+                            df_global.at[idx, 'Grouping_IC_Gap'] = np.nan
+                            df_global.at[idx, 'Grouping_Model'] = _rhythm_code(model, ag)
+                        # --- mesor axis: search ran but FDR gate now closed ---
+                        pm = df_global.at[idx, 'p_mesor_diff_FDR'] if 'p_mesor_diff_FDR' in df_global.columns else np.nan
+                        if pd.notna(df_global.at[idx, 'Grouping_Mesor_Confidence']) and pd.notna(pm) and pm > p_threshold:
+                            blocks = (tuple(sorted(ag)),) if ag else tuple()
+                            df_global.at[idx, 'Grouping_Mesor'] = "All groups equal (same baseline)"
+                            df_global.at[idx, 'Grouping_Mesor_Confidence'] = np.nan
+                            df_global.at[idx, 'Grouping_Mesor_IC_Gap'] = np.nan
+                            df_global.at[idx, 'Grouping_Mesor_Model'] = _mesor_code(blocks, ag)
+                df_global = df_global.drop(columns=['_R_rhythm', '_all_groups'], errors='ignore')
+
             df_export_grouped = df_export.groupby('Gene')
             df_comp_grouped = df_comparisons.groupby('Gene') if not df_comparisons.empty else None
             df_global_grouped = df_global.groupby('Gene') if not df_global.empty else None
@@ -2265,8 +2332,11 @@ def main():
                     # -- 1. Global Fill --
                     row_dict['Gene'] = gene
                     row_dict['p_global_rhythm'] = df_gbl.loc[0, 'p_global_rhythm'] if not df_gbl.empty else ""
+                    row_dict['p_global_rhythm_FDR'] = df_gbl.loc[0, 'p_global_rhythm_FDR'] if (not df_gbl.empty and 'p_global_rhythm_FDR' in df_gbl.columns) else ""
                     row_dict['p_rhythm_diff'] = df_gbl.loc[0, 'p_rhythm_diff'] if not df_gbl.empty else ""
+                    row_dict['p_rhythm_diff_FDR'] = df_gbl.loc[0, 'p_rhythm_diff_FDR'] if (not df_gbl.empty and 'p_rhythm_diff_FDR' in df_gbl.columns) else ""
                     row_dict['p_mesor_diff'] = df_gbl.loc[0, 'p_mesor_diff'] if (not df_gbl.empty and 'p_mesor_diff' in df_gbl.columns) else ""
+                    row_dict['p_mesor_diff_FDR'] = df_gbl.loc[0, 'p_mesor_diff_FDR'] if (not df_gbl.empty and 'p_mesor_diff_FDR' in df_gbl.columns) else ""
                     _has_grp = (not df_gbl.empty) and ('Grouping' in df_gbl.columns)
                     row_dict['Grouping'] = df_gbl.loc[0, 'Grouping'] if _has_grp else ""
                     row_dict['Grouping_Model'] = df_gbl.loc[0, 'Grouping_Model'] if (_has_grp and 'Grouping_Model' in df_gbl.columns) else ""
@@ -2325,7 +2395,7 @@ def main():
 
             # Final column sorting
             col_order = [
-                'Gene', 'p_global_rhythm', 'p_rhythm_diff', 'p_mesor_diff',
+                'Gene', 'p_global_rhythm', 'p_global_rhythm_FDR', 'p_rhythm_diff', 'p_rhythm_diff_FDR', 'p_mesor_diff', 'p_mesor_diff_FDR',
                 'Grouping', 'Grouping_Model', 'Grouping_Confidence', 'Grouping_IC_Gap',
                 'Grouping_Mesor', 'Grouping_Mesor_Model', 'Grouping_Mesor_Confidence', 'Grouping_Mesor_IC_Gap',
                 'Group', 'P-value', 'P-value (FDR)', 'R2', 'Mesor', 'Amplitude', 'amp_limit', 'Phase', 'Phase (h:min)', 'Interval', 'Period',
@@ -2350,7 +2420,7 @@ def main():
             # tested" ("") and "NLS failed" (NaN) sentinels both become NaN, which
             # is the correct numeric representation of a missing value.
             numeric_cols = [
-                'p_global_rhythm', 'p_rhythm_diff', 'p_mesor_diff',
+                'p_global_rhythm', 'p_global_rhythm_FDR', 'p_rhythm_diff', 'p_rhythm_diff_FDR', 'p_mesor_diff', 'p_mesor_diff_FDR',
                 'Grouping_Confidence', 'Grouping_IC_Gap',
                 'Grouping_Mesor_Confidence', 'Grouping_Mesor_IC_Gap',
                 'P-value', 'P-value (FDR)',
