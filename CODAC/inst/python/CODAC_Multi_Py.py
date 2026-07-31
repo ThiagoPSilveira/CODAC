@@ -13,6 +13,7 @@ from scipy import stats
 from scipy.optimize import curve_fit
 from statsmodels.stats.multitest import multipletests
 from matplotlib.ticker import FormatStrFormatter
+from matplotlib.backends.backend_pdf import PdfPages
 from sklearn.svm import SVC
 from tqdm import tqdm
 from statsmodels.stats.anova import anova_lm
@@ -1311,12 +1312,207 @@ def generate_heatmap_by_category(df_comparisons, results, df_long, n_observation
                      f'{cat}\n{g1} ({n_genes} genes, ordered by {sort_criterion})',
                      os.path.join(base_dir, 'plots', f'heatmap_{cat_tag}_{safe}__A_{g1}.png'),
                      fig_w, fig_h, label_w)
-            draw_one(m2, tl2, gene_order,
-                     f'{cat}\n{g2} (same genes & order as {g1})',
-                     os.path.join(base_dir, 'plots', f'heatmap_{cat_tag}_{safe}__B_{g2}.png'),
-                     fig_w, fig_h, label_w)
-
     return None
+
+# ===================================================================
+# MODEL-BASED HEATMAPS (CODAC_Multi)
+# One heatmap per grouping model (M01..M15): all groups shown side by side as
+# panels, row z-scored (mesor removed -> amplitude+phase remain), genes ordered
+# by the acrophase of the model's rhythmic group (M01 has none -> ordered by the
+# baseline/mesor difference). Replaces the old pairwise per-category heatmaps.
+# ===================================================================
+
+def _zmatrix(df_long, grp, gene_order, n_observations, tp_prefix):
+    df_grp = df_long[df_long['Group'] == grp]
+    timepoints = sorted(df_grp['Time'].unique())
+    time_labels = [f"{tp_prefix}{h}" for h in timepoints]
+    grouped = df_grp.groupby('Gene')
+    rows = []
+    for gene in gene_order:
+        y = grouped.get_group(gene)['Value'].values if gene in grouped.groups else []
+        if len(y) == 0:
+            rows.append([np.nan] * len(timepoints)); continue
+        means = [np.nanmean(y[i:i + n_observations]) if len(y[i:i + n_observations]) > 0 else np.nan
+                 for i in range(0, len(y), n_observations)]
+        means = (means + [np.nan] * len(timepoints))[:len(timepoints)]
+        rows.append(means)
+    matrix = np.array(rows, dtype=float)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", category=RuntimeWarning)
+        rm = np.nanmean(matrix, axis=1, keepdims=True)
+        rs = np.nanstd(matrix, axis=1, keepdims=True)
+    rs[rs == 0] = 1
+    return np.clip((matrix - rm) / rs, -3, 3), time_labels
+
+def _rhythmic_from_code(code, groups):
+    # Canonical rhythmic set for a model code ("M05" -> frozenset of rhythmic groups).
+    try:
+        return sorted(enumerate_rhythm_models(groups)[int(code[1:]) - 1][0])
+    except (ValueError, IndexError, TypeError):
+        return []
+
+def _model_gene_order(genes, code, groups, phase_lookup, mesor_lookup):
+    rset = _rhythmic_from_code(code, groups)
+    if rset:
+        sort_grp = next((g for g in groups if g in rset), rset[0])
+        def key(gene):
+            p = phase_lookup.get((gene, sort_grp), np.nan)
+            return (np.isnan(p), p if not np.isnan(p) else 0.0)
+    else:
+        # M01 (arrhythmic in all): order by mesor of first group minus the rest.
+        first = groups[0]; rest = groups[1:]
+        def key(gene):
+            m0 = mesor_lookup.get((gene, first), np.nan)
+            mr = np.nanmean([mesor_lookup.get((gene, g), np.nan) for g in rest]) if rest else np.nan
+            d = m0 - mr
+            return (np.isnan(d), d if not np.isnan(d) else 0.0)
+    return sorted(genes, key=key)
+
+def generate_heatmap_by_model(df_global, results, df_long, n_observations, groups,
+                              base_dir, time_label='Time (ZT Hours)'):
+    print("\n" + "=" * 70, flush=True)
+    print('             GENERATING MODEL-BASED HEATMAPS           ', flush=True)
+    print("=" * 70, flush=True)
+    if df_global is None or df_global.empty or 'Grouping_Model' not in df_global.columns:
+        print("  [skip] no grouping table available."); return []
+
+    tp_prefix = 'CT' if 'CT' in time_label else ('ZT' if 'ZT' in time_label else '')
+    phase_lookup = {(r['gene'], r['group_name']): r.get('phase', np.nan) for r in results}
+    mesor_lookup = {(r['gene'], r['group_name']): r.get('mesor', np.nan) for r in results}
+    grp_colors = {g: plt.cm.tab10(i % 10) for i, g in enumerate(groups)}
+
+    from collections import defaultdict
+    by_model = defaultdict(list)
+    for _, row in df_global.iterrows():
+        code = row.get('Grouping_Model', "")
+        if isinstance(code, str) and code.startswith('M'):
+            by_model[code].append(row['Gene'])
+
+    saved = []
+    for code in tqdm(sorted(by_model), desc="Model heatmaps", unit="model"):
+        genes = by_model[code]
+        if not genes:
+            continue
+        gene_order = _model_gene_order(genes, code, groups, phase_lookup, mesor_lookup)
+        n_genes = len(gene_order)
+        rset = _rhythmic_from_code(code, groups)
+        sort_desc = f"{next((g for g in groups if g in rset), '')} acrophase" if rset else "mesor difference"
+
+        mats = [(_zmatrix(df_long, g, gene_order, n_observations, tp_prefix), g) for g in groups]
+        n_tp = max((len(tl) for (_, tl), _ in mats), default=1)
+        show_labels = n_genes <= 50
+        label_w = 1.8 if show_labels else 0.25
+        panel_w = n_tp * 0.5
+        gap = 0.35
+        fig_w = label_w + len(groups) * (panel_w + gap) + 1.2
+        fig_h = 12.0
+        fig = plt.figure(figsize=(fig_w, fig_h))
+        x0 = label_w
+        im = None
+        for (mz, tl), g in mats:
+            ax = fig.add_axes([x0 / fig_w, 0.08, panel_w / fig_w, 0.82])
+            ax.set_facecolor('lightgray')
+            im = ax.imshow(mz, aspect='auto', cmap='RdBu_r', vmin=-3, vmax=3)
+            ax.set_xticks(range(len(tl))); ax.set_xticklabels(tl, rotation=45, ha='right', fontsize=7)
+            ax.set_yticks([])
+            ax.set_title(g, fontsize=11, fontweight='bold', color=grp_colors[g])
+            x0 += panel_w + gap
+        if show_labels:
+            ax_lbl = fig.add_axes([0, 0.08, label_w / fig_w, 0.82])
+            ax_lbl.set_ylim(-0.5, n_genes - 0.5); ax_lbl.invert_yaxis(); ax_lbl.axis('off')
+            fs = max(2.0, min(7.0, (1920.0 / max(n_genes, 1)) * 0.5))
+            for i, name in enumerate(gene_order):
+                ax_lbl.text(0.95, i, name, ha='right', va='center', fontsize=fs, family='monospace')
+        cax = fig.add_axes([(fig_w - 0.9) / fig_w, 0.08, 0.15 / fig_w, 0.82])
+        fig.colorbar(im, cax=cax, label='row z-score')
+        fig.suptitle(f"Model {code}  ({n_genes} genes, ordered by {sort_desc})",
+                     fontsize=13, fontweight='bold')
+        out = os.path.join(base_dir, 'plots', f'heatmap_model_{code}.png')
+        fig.savefig(out, dpi=130, bbox_inches='tight'); plt.close(fig)
+        saved.append(out)
+    return saved
+
+def generate_heatmap_consolidated(df_global, results, df_long, n_observations, groups,
+                                  base_dir, time_label='Time (ZT Hours)'):
+    # One tall figure: models M02..M15 stacked vertically (M01 excluded -- focus on
+    # rhythmic targets), the groups side by side as column-panels, each model block
+    # ordered internally by its rhythmic group's acrophase. No per-gene labels; each
+    # model block is marked by its code on the left.
+    if df_global is None or df_global.empty or 'Grouping_Model' not in df_global.columns:
+        return None
+    tp_prefix = 'CT' if 'CT' in time_label else ('ZT' if 'ZT' in time_label else '')
+    phase_lookup = {(r['gene'], r['group_name']): r.get('phase', np.nan) for r in results}
+    mesor_lookup = {(r['gene'], r['group_name']): r.get('mesor', np.nan) for r in results}
+    grp_colors = {g: plt.cm.tab10(i % 10) for i, g in enumerate(groups)}
+
+    from collections import defaultdict
+    by_model = defaultdict(list)
+    for _, row in df_global.iterrows():
+        code = row.get('Grouping_Model', "")
+        if isinstance(code, str) and code.startswith('M') and code != 'M01':
+            by_model[code].append(row['Gene'])
+    codes = [c for c in sorted(by_model) if by_model[c]]
+    if not codes:
+        return None
+
+    # Ordered gene list (blocks concatenated) + block boundaries.
+    ordered, blocks = [], []
+    for code in codes:
+        go = _model_gene_order(by_model[code], code, groups, phase_lookup, mesor_lookup)
+        blocks.append((code, len(ordered), len(ordered) + len(go)))
+        ordered.extend(go)
+    total = len(ordered)
+
+    mats = [(_zmatrix(df_long, g, ordered, n_observations, tp_prefix), g) for g in groups]
+    n_tp = max((len(tl) for (_, tl), _ in mats), default=1)
+    left_w = 0.9
+    panel_w = n_tp * 0.5
+    gap = 0.35
+    fig_w = left_w + len(groups) * (panel_w + gap) + 1.2
+    fig_h = max(6.0, min(40.0, total * 0.02 + 2))
+    fig = plt.figure(figsize=(fig_w, fig_h))
+    x0 = left_w
+    im = None
+    for (mz, tl), g in mats:
+        ax = fig.add_axes([x0 / fig_w, 0.05, panel_w / fig_w, 0.88])
+        ax.set_facecolor('lightgray')
+        im = ax.imshow(mz, aspect='auto', cmap='RdBu_r', vmin=-3, vmax=3)
+        ax.set_xticks(range(len(tl))); ax.set_xticklabels(tl, rotation=45, ha='right', fontsize=7)
+        ax.set_yticks([])
+        ax.set_title(g, fontsize=12, fontweight='bold', color=grp_colors[g])
+        for _, s, e in blocks:                 # separator lines between models
+            if s > 0:
+                ax.axhline(s - 0.5, color='black', lw=0.8)
+        x0 += panel_w + gap
+    # Model labels + brackets on the left.
+    ax_lbl = fig.add_axes([0, 0.05, left_w / fig_w, 0.88])
+    ax_lbl.set_ylim(total - 0.5, -0.5); ax_lbl.set_xlim(0, 1); ax_lbl.axis('off')
+    for code, s, e in blocks:
+        mid = (s + e) / 2.0
+        ax_lbl.text(0.5, mid, code, ha='center', va='center', fontsize=9, fontweight='bold', rotation=90)
+    cax = fig.add_axes([(fig_w - 0.9) / fig_w, 0.05, 0.15 / fig_w, 0.88])
+    fig.colorbar(im, cax=cax, label='row z-score')
+    fig.suptitle(f"Consolidated grouping heatmap  (models M02-M15, {total} rhythmic targets)",
+                 fontsize=13, fontweight='bold')
+    out = os.path.join(base_dir, 'plots', 'heatmap_consolidated.png')
+    fig.savefig(out, dpi=130, bbox_inches='tight'); plt.close(fig)
+    return out
+
+def bundle_heatmaps_pdf(paths, base_dir):
+    # Bundle the consolidated + per-model heatmap PNGs into a single PDF.
+    valid = [p for p in paths if p and os.path.exists(p)]
+    if not valid:
+        return None
+    out = os.path.join(base_dir, 'plots', 'CODAC_Multi_heatmaps.pdf')
+    with PdfPages(out) as pdf:
+        for p in valid:
+            img = plt.imread(p)
+            h, w = img.shape[0], img.shape[1]
+            fig = plt.figure(figsize=(min(14, w / 130.0), min(18, h / 130.0)))
+            ax = fig.add_axes([0, 0, 1, 1]); ax.imshow(img); ax.axis('off')
+            pdf.savefig(fig); plt.close(fig)
+    return out
+
 
 # -------------------------------------------------------------------
 # Polar Rose Plot
@@ -2609,8 +2805,12 @@ def main():
     # ------------------------------------------------------------------
     fig_polar = generate_polar_plot(results, p_threshold, r2_threshold,counter_threshold, results_dir,time_label=time_label)
     heatmaps_results = generate_heatmap_compare(results, df_long, n_observations,counter_threshold, results_dir,time_label=time_label)
-    # Heatmaps organized by biological category instead of by pair.
-    generate_heatmap_by_category(df_comparisons, results, df_long, n_observations,comparisons_to_run, results_dir, time_label=time_label)
+    # Model-based heatmaps (replace the old per-pair/per-category heatmaps).
+    _dfg = df_global if 'df_global' in locals() else pd.DataFrame()
+    model_heatmap_paths = generate_heatmap_by_model(_dfg, results, df_long, n_observations, groups, results_dir, time_label=time_label)
+    consolidated_path = generate_heatmap_consolidated(_dfg, results, df_long, n_observations, groups, results_dir, time_label=time_label)
+    # Bundle everything (consolidated first, then per-model) into one PDF (dryR-style).
+    bundle_heatmaps_pdf(([consolidated_path] if consolidated_path else []) + (model_heatmap_paths or []), results_dir)
     # Save the data from the first group to maintain compatibility with Spyder.
     if heatmaps_results and len(heatmaps_results) > 0:
         first_group = list(heatmaps_results.keys())[0]
