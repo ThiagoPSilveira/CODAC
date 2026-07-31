@@ -407,10 +407,16 @@ In the `CODA_Results/plots/` folder:
 
 - **Per-target plots** — the fitted curve(s) over the data (all groups overlaid
   for Compare/Multi; annotated with the winning model for Flex).
-- **Heatmaps** — rhythmic targets ordered by acrophase; for Compare/Multi, also
-  per-category heatmaps with two panels (one per group, same targets/order,
-  z-scored so only amplitude/phase show). Per-gene labels are drawn only when a
-  panel has at most 50 targets, to keep large heatmaps readable.
+- **Heatmaps** — rhythmic targets ordered by acrophase, z-scored row-wise so only
+  amplitude and phase show (the mesor is removed by construction). Per-gene labels
+  are drawn only when a panel has at most 50 targets.
+  - **Compare** draws per-category heatmaps (two panels, one per group).
+  - **Multi** draws **model-based** heatmaps instead: one per grouping model
+    (`heatmap_model_M02.png` …), with all groups side by side and genes ordered by
+    the acrophase of the model's rhythmic group (`M01` is ordered by the mesor
+    difference). A **consolidated** heatmap (`heatmap_consolidated.png`) stacks
+    models M02–M15 vertically with the groups as columns, and everything is also
+    bundled into a single **`CODAC_Multi_heatmaps.pdf`**.
 - **Summary figures** — R² and amplitude distributions, R²-vs-p-value scatter, and
   a phase rose (polar) plot.
 - **Flex** adds a pie chart of how often each model won.
