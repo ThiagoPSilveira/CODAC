@@ -316,6 +316,48 @@ identical rhythm across groups while its baseline splits (or vice versa).
 > `p_rhythm_diff` with a low confidence means "there is a difference, but the exact
 > grouping is uncertain" — worth checking the pairwise rows for that target.
 
+#### When is `Grouping_Confidence` a number — and where to look otherwise
+
+`Grouping_Confidence` is the weight of the model-selection *search*, so it carries
+a value only when that search actually runs: when **two or more groups are
+rhythmic AND their rhythms differ** (`p_rhythm_diff` past the gate). Otherwise it
+is `NA`. By model:
+
+- **Always `NA`** — `M01` (no group rhythmic) and `M02`/`M03`/`M04` (exactly one
+  group rhythmic): with 0 or 1 rhythmic groups there is no "shared vs. split"
+  question to weigh, so there is nothing to score.
+- **Always a number** — the *split* models `M06`, `M08`, `M10`, `M12`–`M15`: these
+  only arise because the search chose a split.
+- **Either** — the *shared* models `M05`, `M07`, `M09`, `M11`: a number when the
+  search ran and chose "shared"; `NA` when the gate was closed (`p_rhythm_diff`
+  not significant) and sharing was assumed without a search.
+
+**An `NA` confidence does not mean missing information** — it only means the
+grouping *structure* was decided without a model-selection contest. The
+per-component detail (amplitude, phase, baseline differences) always lives in the
+pairwise columns, whatever the grouping says. For any target, read:
+
+- `Biological_Category`, `p_diff_amplitude` / `p_diff_amplitude_FDR`, `p_diff_phase`
+  / `p_diff_phase_FDR`, `Delta_Amplitude`, `Delta_Phase` — whether and by how much
+  amplitude and phase differ between each pair of groups.
+- `LossGain_Confidence` — for the one-rhythmic-group cases (`M02`–`M04`), the
+  confidence that a rhythm was gained or lost.
+
+So: use `Grouping`/`Grouping_Model` for the big-picture structure, and the
+pairwise columns for the per-component numbers — including when the grouping
+confidence is `NA`.
+
+#### Choosing `BIC` vs `AICc`
+
+Use **`BIC`** (the default) for genome-wide screens and whenever avoiding false
+"groups differ" calls matters more than catching every subtle one — it penalizes
+complexity more strongly and is the conservative, dryR-aligned choice. Use
+**`AICc`** for targeted analyses (a handful of candidate targets) or when maximum
+sensitivity to small amplitude/phase differences is the priority and a higher
+false-positive rate is acceptable. When the two criteria would disagree on a
+target, its `Grouping_Confidence` and `Grouping_IC_Gap` tend to be low anyway — a
+built-in signal that the call is genuinely borderline.
+
 #### Model legend (three groups)
 
 The `Grouping_Model` / `Grouping_Mesor_Model` codes are stable for a **fixed
@@ -365,10 +407,16 @@ In the `CODA_Results/plots/` folder:
 
 - **Per-target plots** — the fitted curve(s) over the data (all groups overlaid
   for Compare/Multi; annotated with the winning model for Flex).
-- **Heatmaps** — rhythmic targets ordered by acrophase; for Compare/Multi, also
-  per-category heatmaps with two panels (one per group, same targets/order,
-  z-scored so only amplitude/phase show). Per-gene labels are drawn only when a
-  panel has at most 50 targets, to keep large heatmaps readable.
+- **Heatmaps** — rhythmic targets ordered by acrophase, z-scored row-wise so only
+  amplitude and phase show (the mesor is removed by construction). Per-gene labels
+  are drawn only when a panel has at most 50 targets.
+  - **Compare** draws per-category heatmaps (two panels, one per group).
+  - **Multi** draws **model-based** heatmaps instead: one per grouping model
+    (`heatmap_model_M02.png` …), with all groups side by side and genes ordered by
+    the acrophase of the model's rhythmic group (`M01` is ordered by the mesor
+    difference). A **consolidated** heatmap (`heatmap_consolidated.png`) stacks
+    models M02–M15 vertically with the groups as columns, and everything is also
+    bundled into a single **`CODAC_Multi_heatmaps.pdf`**.
 - **Summary figures** — R² and amplitude distributions, R²-vs-p-value scatter, and
   a phase rose (polar) plot.
 - **Flex** adds a pie chart of how often each model won.
