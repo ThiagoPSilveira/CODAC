@@ -267,6 +267,19 @@ Multi keeps everything Compare produces (the per-group fits and the pairwise
 comparisons) and adds a **target-level** view: three global tests and the best
 **grouping** of the groups on two independent axes.
 
+> **The pairwise `Biological_Category` is reconciled with the grouping.** In Multi
+> (unlike Compare, which is purely pairwise), the grouping is authoritative for the
+> "changed vs. unchanged" call: for a pair of both-rhythmic groups, if they sit in
+> the **same** rhythm block the category is `Cat 4` (unchanged); if they sit in
+> **different** blocks it is `Cat 5/6/7` (changed), with the specific component
+> taken from the pairwise amplitude/phase p-values. So `M11` (all groups share the
+> rhythm) is `Cat 4` on every pair, `M05`/`M07`/`M09` are `Cat 4` on their shared
+> pair, and `M06`/`M08`/`M10` are `Cat 5/6/7`. This can override a pairwise test —
+> a target whose grouping says "shared" is `Cat 4` even if its raw pairwise
+> amplitude/phase p-value was significant — so the category reflects the grouping
+> structure, not the isolated pairwise test. The raw `Delta_*` and `p_diff_*`
+> columns are left untouched, so that underlying test stays visible.
+
 **The three global tests** (one value per target):
 
 | Column | Question it answers |
