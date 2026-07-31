@@ -47,7 +47,7 @@ remotes::install_github("ThiagoPSilveira/CODAC", subdir = "CODAC")
 # Tab-delimited file: target names in column 1, then the value columns ordered
 # BY GROUP: for each group, all timepoints, each with its replicates. So the
 # number of value columns must equal length(groups) * length(timepoints) * n_observations.
-data_path <- "C:/Users/55929/Documents/GitHub/CODAC-Plus/Tests/compare_plus_gene_data.txt"   # <-- EDIT THIS
+data_path <- "C:/path/to/your/compare_gene_data.txt"   # <-- EDIT THIS
 
 # Work in the folder that contains your data file. The engine automatically
 # creates a "CODA_Results" folder here (same behavior as the PyCharm run),
@@ -74,7 +74,7 @@ library(CODAC)
 # if the check below is not what you expect, switch dec and run again.
 # ///////////////////////////////////////////////////////////////////////////
 expression_data <- read.table(data_path, sep = "\t", header = TRUE,
-                              check.names = FALSE, dec = ",")
+                              check.names = FALSE, dec = ".")
 
 # Safety net: drop fully-empty columns (e.g. from trailing tabs in the header)
 expression_data <- expression_data[, colSums(is.na(expression_data)) < nrow(expression_data)]
@@ -112,6 +112,7 @@ analysis_results <- codac_multi(
   p_value_option      = 'FDR',        # PER-GROUP rhythmicity test: 'FDR' (Benjamini-Hochberg) or 'RAW'
   p_value_comparison  = 'RAW',        # PAIRWISE comparison decisions (Mesor_Change + categories): 'RAW' or 'FDR'
   selection_criterion = 'BIC',        # MULTI-GROUP grouping criterion: 'BIC' (conservative, default) or 'AICc'
+  p_value_global      = 'FDR',        # GLOBAL gates (p_rhythm_diff/p_mesor_diff): 'FDR' (default) or 'RAW'
   min_rhythmicity     = 'HIGH',       # 'ARRHYTHMIC','LOW','MEDIUM','HIGH','EXTREMELY HIGH'
   rhythmicity_cutoff  = 'HIGH',       # Rhythmicity level to count a group as rhythmic (excludes MEDIUM by default)
   amp_stringency      = 0.5,          # Amplitude-filter strictness: 0 = off, 0.5 = default, 1 = strictest

@@ -34,6 +34,10 @@
 #'   difference, aligned with dryR) or 'AICc' (more permissive/sensitive, higher
 #'   false-positive risk). Drives the `Grouping`/`Grouping_Mesor` columns and the
 #'   0-1 confidence weights.
+#' @param p_value_global Which p-value drives the GLOBAL gates (`p_rhythm_diff`,
+#'   `p_mesor_diff`): 'FDR' (default, Benjamini-Hochberg across all targets --
+#'   recommended for genome-wide screens) or 'RAW'. Both raw and `_FDR` columns
+#'   are always exported; only the gate decision switches.
 #' @param min_rhythmicity Minimum rhythmicity tier (default: 'ARRHYTHMIC').
 #' @param rhythmicity_cutoff Rhythmicity level at which a group counts as rhythmic
 #'   in the classification: 'ARRHYTHMIC','LOW','MEDIUM','HIGH','EXTREMELY HIGH' (default: 'HIGH').
@@ -61,6 +65,7 @@ codac_multi <- function(data,
                              p_value_option = 'FDR',
                              p_value_comparison = 'RAW',
                              selection_criterion = 'BIC',
+                             p_value_global = 'FDR',
                              min_rhythmicity = 'HIGH',
                              rhythmicity_cutoff = 'HIGH',
                              amp_stringency = 0.5,
@@ -97,6 +102,7 @@ codac_multi <- function(data,
   py$p_value_option      <- p_value_option
   py$p_value_comparison  <- p_value_comparison
   py$selection_criterion <- selection_criterion
+  py$p_value_global      <- p_value_global
   py$min_rhythmicity     <- min_rhythmicity
   py$rhythmicity_cutoff  <- rhythmicity_cutoff
   py$amp_stringency      <- amp_stringency
