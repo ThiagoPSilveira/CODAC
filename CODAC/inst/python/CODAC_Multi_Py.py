@@ -848,6 +848,22 @@ def add_global_fdr(df_global, cols):
         df_global[col + '_FDR'] = out
     return df_global
 
+def _parse_p_setting(val, default_alpha, default_method):
+    # Accepts a bare method ('FDR'), or a (method, alpha) pair -- from R,
+    # c('FDR', 0.1) arrives as ['FDR', '0.1']. Returns (METHOD_upper, alpha).
+    method, alpha = default_method, default_alpha
+    if isinstance(val, (list, tuple)):
+        if len(val) >= 1 and str(val[0]).strip():
+            method = str(val[0]).strip().upper()
+        if len(val) >= 2:
+            try:
+                alpha = float(val[1])
+            except (TypeError, ValueError):
+                pass
+    elif val is not None and str(val).strip():
+        method = str(val).strip().upper()
+    return method, alpha
+
 #-------------------------------------------------------------------
 # (Re)assign the biological categories from a chosen p-value source
 #-------------------------------------------------------------------
@@ -2007,10 +2023,14 @@ def main():
     period_lower = 24.0
     period_upper = 24.0
 
-    p_value_option = current_vars.get('p_value_option', 'FDR') # 'FDR' = adjusted p-value (Benjamini-Hochberg) | 'RAW' or 'O' = original p-value
-    p_threshold = current_vars.get('p_threshold', 0.05)
+    _base_alpha = float(current_vars.get('p_threshold', 0.05))
+    # Each p-value setting can now carry its own alpha: a bare method keeps the
+    # shared p_threshold, or a (method, alpha) pair -- e.g. p_value_option =
+    # c('FDR', 0.1) -- sets a per-family threshold.
+    p_value_option, alpha_rhythm = _parse_p_setting(current_vars.get('p_value_option', 'FDR'), _base_alpha, 'FDR')
+    p_value_comparison, alpha_comparison = _parse_p_setting(current_vars.get('p_value_comparison', 'RAW'), _base_alpha, 'RAW')
+    p_threshold = alpha_rhythm   # the rhythmicity family keeps using p_threshold
     rhythmicity_cutoff = current_vars.get('rhythmicity_cutoff', 'HIGH')
-    p_value_comparison = current_vars.get('p_value_comparison', 'RAW')
 
     # Information criterion for the multi-group GROUPING selection (CODAC_Multi).
     #   'BIC'  (default) -- stronger complexity penalty, more conservative about
@@ -2024,18 +2044,15 @@ def main():
         selection_criterion = 'BIC'
     print(f"[INFO] Grouping selection criterion: {selection_criterion}.")
 
-    # Which p-value drives the GLOBAL gates (p_rhythm_diff / p_mesor_diff):
-    #   'FDR' (default) -- Benjamini-Hochberg corrected across all targets, the
-    #                      right choice for a genome-wide screen (the gate tests
-    #                      run once per target over thousands of targets).
-    #   'RAW'           -- uncorrected per-target p-values.
-    # Both raw and *_FDR columns are always exported; only the gate DECISION
-    # switches. (In codac_compare() these globals are reported but do not gate.)
-    p_value_global = str(current_vars.get('p_value_global', 'FDR')).strip().upper()
+    # Which p-value drives the GLOBAL gates (p_rhythm_diff / p_mesor_diff), with
+    # its own alpha. Both raw and *_FDR columns are always exported; only the gate
+    # DECISION switches. (In codac_compare() these globals are reported, not gated.)
+    p_value_global, alpha_global = _parse_p_setting(current_vars.get('p_value_global', 'FDR'), _base_alpha, 'FDR')
     if p_value_global not in ('RAW', 'FDR'):
         print(f"[WARN] Unknown p_value_global '{p_value_global}'; falling back to 'FDR'.")
         p_value_global = 'FDR'
-    print(f"[INFO] Global-gate p-value source: {p_value_global}.")
+    print(f"[INFO] p-value settings: rhythmicity={p_value_option}@{alpha_rhythm}, "
+          f"comparison={p_value_comparison}@{alpha_comparison}, global gates={p_value_global}@{alpha_global}.")
 
     missing_data_action = current_vars.get('missing_data_action', 'KEEP')  # 'KEEP', 'IMPUTE' or 'REMOVE'
     exclude_medium = current_vars.get('exclude_medium', True)
@@ -2289,7 +2306,7 @@ def main():
 
                 if len(R) >= 2 and pd.isna(p_gate):
                     g_lab, g_conf, g_gap, g_code = "Undetermined (insufficient data)", np.nan, np.nan, ""
-                elif len(R) >= 2 and (p_gate <= p_threshold):
+                elif len(R) >= 2 and (p_gate <= alpha_global):
                     g_lab, g_conf, g_gap, g_code = select_rhythm_grouping(
                         df_gene, groups_in_gene, R, criterion=selection_criterion,
                         time_col='time', expr_col='expr', group_col='group')
@@ -2323,7 +2340,7 @@ def main():
                 global_test_row['p_mesor_diff'] = p_mesor
                 if pd.isna(p_mesor):
                     m_lab, m_conf, m_gap, m_code = "Undetermined (insufficient data)", np.nan, np.nan, ""
-                elif p_mesor <= p_threshold:
+                elif p_mesor <= alpha_global:
                     m_lab, m_conf, m_gap, m_code = select_mesor_grouping(
                         df_gene, groups_in_gene, criterion=selection_criterion,
                         time_col='time', expr_col='expr', group_col='group')
@@ -2540,7 +2557,7 @@ def main():
         # Decide the comparison-driven outputs (Mesor_Change, categories, loss/gain
         # confidence) from the chosen source: raw or FDR-adjusted pairwise p-values.
         # Default 'RAW' reproduces the previous, validated behavior exactly.
-        df_comparisons = assign_categories(df_comparisons, p_source=p_value_comparison)
+        df_comparisons = assign_categories(df_comparisons, p_source=p_value_comparison, alpha=alpha_comparison)
         print(f"[INFO] Comparison p-value source: "
               f"{'FDR-adjusted' if str(p_value_comparison).upper() in ('FDR','ADJ','ADJUSTED') else 'raw'} "
               f"(p_value_comparison = '{p_value_comparison}').")
@@ -2569,7 +2586,7 @@ def main():
                         ag = _split(df_global.at[idx, '_all_groups']) if '_all_groups' in df_global.columns else []
                         # --- rhythm axis: search ran (conf not NaN) but FDR gate now closed ---
                         pr = df_global.at[idx, 'p_rhythm_diff_FDR'] if 'p_rhythm_diff_FDR' in df_global.columns else np.nan
-                        if pd.notna(df_global.at[idx, 'Grouping_Confidence']) and pd.notna(pr) and pr > p_threshold:
+                        if pd.notna(df_global.at[idx, 'Grouping_Confidence']) and pd.notna(pr) and pr > alpha_global:
                             R = _split(df_global.at[idx, '_R_rhythm'])
                             model = (frozenset(R), (tuple(sorted(R)),) if R else tuple())
                             df_global.at[idx, 'Grouping'] = ("All groups rhythmic (shared rhythm)"
@@ -2579,7 +2596,7 @@ def main():
                             df_global.at[idx, 'Grouping_Model'] = _rhythm_code(model, ag)
                         # --- mesor axis: search ran but FDR gate now closed ---
                         pm = df_global.at[idx, 'p_mesor_diff_FDR'] if 'p_mesor_diff_FDR' in df_global.columns else np.nan
-                        if pd.notna(df_global.at[idx, 'Grouping_Mesor_Confidence']) and pd.notna(pm) and pm > p_threshold:
+                        if pd.notna(df_global.at[idx, 'Grouping_Mesor_Confidence']) and pd.notna(pm) and pm > alpha_global:
                             blocks = (tuple(sorted(ag)),) if ag else tuple()
                             df_global.at[idx, 'Grouping_Mesor'] = "All groups equal (same baseline)"
                             df_global.at[idx, 'Grouping_Mesor_Confidence'] = np.nan
@@ -2590,7 +2607,7 @@ def main():
             # Make the pairwise categories consistent with the final grouping.
             df_comparisons = reconcile_categories_with_grouping(
                 df_comparisons, df_global, groups,
-                alpha=p_threshold, p_source=p_value_comparison)
+                alpha=alpha_comparison, p_source=p_value_comparison)
 
             df_export_grouped = df_export.groupby('Gene')
             df_comp_grouped = df_comparisons.groupby('Gene') if not df_comparisons.empty else None

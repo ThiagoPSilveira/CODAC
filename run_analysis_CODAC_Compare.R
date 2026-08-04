@@ -109,8 +109,8 @@ analysis_results <- codac_compare(
   r2_threshold        = 0.4,          # Minimum R-squared (goodness of fit)
   p_threshold         = 0.05,         # Significance level (p-value)
   missing_data_action = 'KEEP',       # How to handle missing values: 'KEEP', 'IMPUTE', or 'REMOVE'
-  p_value_option      = 'FDR',        # PER-GROUP rhythmicity test: 'FDR' (Benjamini-Hochberg) or 'RAW'
-  p_value_comparison  = 'RAW',        # PAIRWISE comparison decisions (Mesor_Change + categories): 'RAW' or 'FDR'
+  p_value_option      = 'FDR',        # PER-GROUP rhythmicity: 'FDR' or 'RAW'. Own alpha via c('FDR', 0.1)
+  p_value_comparison  = 'RAW',        # PAIRWISE decisions: 'RAW' or 'FDR'. Own alpha via c('RAW', 0.05)
   min_rhythmicity     = 'HIGH',       # 'ARRHYTHMIC','LOW','MEDIUM','HIGH','EXTREMELY HIGH'
   rhythmicity_cutoff  = 'HIGH',       # Rhythmicity level to count a group as rhythmic (excludes MEDIUM by default)
   amp_stringency      = 0.5,          # Amplitude-filter strictness: 0 = off, 0.5 = default, 1 = strictest
