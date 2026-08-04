@@ -139,7 +139,7 @@ Python engine automatically.
 | `n_observations` | Number of replicates per timepoint |
 | `r2_threshold` | Minimum R² for a fit to count as good (default `0.4`) |
 | `p_threshold` | Significance level for the rhythmicity p-value (default `0.05`) |
-| `p_value_option` | Multiple-testing for the **rhythmicity** p-value: `'FDR'` (Benjamini-Hochberg) or `'RAW'` (default `'FDR'`) |
+| `p_value_option` | Multiple-testing for the **rhythmicity** p-value: `'FDR'` (Benjamini-Hochberg) or `'RAW'` (default `'FDR'`). Each `p_value_*` option can also carry its **own alpha** as a `c(method, alpha)` pair — e.g. `p_value_option = c('FDR', 0.1)` — instead of sharing the single `p_threshold` |
 | `amp_stringency` | Amplitude-filter strictness, `0`–`1` (default `0.5`) — see §5 |
 | `min_rhythmicity` | Minimum rhythmicity tier a target must reach to be kept (default `'HIGH'`) |
 | `missing_data_action` | `'KEEP'` (mask NaNs, default), `'IMPUTE'` (fill from surviving replicates) or `'REMOVE'` |
@@ -200,7 +200,7 @@ These describe the fitted rhythm of each target (per group, for Compare/Multi):
 | `Amplitude` | The size of the oscillation. For Single/Compare/Multi it is the **peak-to-mesor distance** of the fitted curve (equals the cosine amplitude for a pure rhythm); for Flex it is the fitted amplitude parameter of the winning model (see §6.3). |
 | `Amp. Minimum` | The adaptive amplitude threshold used for this target (see §5). A target passes when `Amplitude ≥ Amp. Minimum`. |
 | `Phase` | The **acrophase in decimal hours** — the time of the fitted peak (e.g. `13.75`). This is the value used in all downstream math. |
-| `Phase (h:min)` | The same acrophase in **clock format**, where digits after the dot are minutes (`13.45` = 13 h 45 min). |
+| `Phase (h:min)` | The same acrophase in **clock format**, where digits after the dot are minutes (`13.45` = 13 h 45 min). Display only — never do arithmetic on it. |
 | `Period` | The period in hours. Fixed at 24 for Single/Compare/Multi; fitted by Flex in variable-period mode. |
 | `R2` | Coefficient of determination — how well the fitted curve tracks the data (0–1). |
 | `P-value` | Rhythmicity significance from a nested F-test (fitted cosinor vs a flat line). Raw value. |
@@ -364,7 +364,7 @@ confidence is `NA`.
 
 Use **`BIC`** (the default) for genome-wide screens and whenever avoiding false
 "groups differ" calls matters more than catching every subtle one — it penalizes
-complexity more strongly and is the conservative. Use
+complexity more strongly and is the conservative, dryR-aligned choice. Use
 **`AICc`** for targeted analyses (a handful of candidate targets) or when maximum
 sensitivity to small amplitude/phase differences is the priority and a higher
 false-positive rate is acceptable. When the two criteria would disagree on a
