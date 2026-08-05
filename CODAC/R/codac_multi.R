@@ -34,6 +34,13 @@
 #'   difference, aligned with dryR) or 'AICc' (more permissive/sensitive, higher
 #'   false-positive risk). Drives the `Grouping`/`Grouping_Mesor` columns and the
 #'   0-1 confidence weights.
+#' @param rhythm_diff_correction How the p_rhythm_diff gate is FDR-corrected:
+#'   'all_targets' (default, genome-wide BH) or 'screened_pooled' (two-stage: BH
+#'   only among targets passing the orthogonal pooled shared-rhythm screen,
+#'   recovering power). The genome-wide column is reported in both modes.
+#' @param permute_B Diagnostic: number of label permutations to estimate the
+#'   rhythm-difference gate's empirical FDR inside CODAC's engine (0 = off,
+#'   default). Writes rhythm_diff_calibration.csv. Can be slow.
 #' @param p_value_global Which p-value drives the GLOBAL gates (`p_rhythm_diff`,
 #'   `p_mesor_diff`): 'FDR' (default, Benjamini-Hochberg across all targets --
 #'   recommended for genome-wide screens) or 'RAW'. Both raw and `_FDR` columns
@@ -66,6 +73,8 @@ codac_multi <- function(data,
                              p_value_comparison = 'RAW',
                              selection_criterion = 'BIC',
                              p_value_global = 'FDR',
+                             rhythm_diff_correction = 'all_targets',
+                             permute_B = 0,
                              min_rhythmicity = 'HIGH',
                              rhythmicity_cutoff = 'HIGH',
                              amp_stringency = 0.5,
@@ -103,6 +112,8 @@ codac_multi <- function(data,
   py$p_value_comparison  <- p_value_comparison
   py$selection_criterion <- selection_criterion
   py$p_value_global      <- p_value_global
+  py$rhythm_diff_correction <- rhythm_diff_correction
+  py$permute_B <- as.integer(permute_B)
   py$min_rhythmicity     <- min_rhythmicity
   py$rhythmicity_cutoff  <- rhythmicity_cutoff
   py$amp_stringency      <- amp_stringency

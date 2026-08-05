@@ -500,20 +500,34 @@ def fit_multigroup_models(df_gene, expr_col='Value', group_col='Group'):
 # -------------------------------------------------------------------
 def get_global_tests(model0, model1, model2, group_col='Group'):
     # Performs model comparison tests (Extra Sum-of-Squares F-test).
+    #   model0: group-specific mesors only (no rhythm)
+    #   model1: mesors + a COMMON rhythm shared by all groups (pooled)
+    #   model2: mesors + a per-group rhythm (full)
     out = {'p_global_rhythm': np.nan,
+           'p_pooled_rhythm': np.nan,
            'p_rhythm_diff': np.nan}
 
     if model0 is None or model1 is None or model2 is None:
         return out
 
-    # 1. General Rhythmicity Test (Does any group have rhythm?)
+    # 1. General Rhythmicity Test (Does any group have rhythm?)  model0 vs model2
     try:
         anova_a = anova_lm(model0, model2)
         out['p_global_rhythm'] = float(anova_a['Pr(>F)'].iloc[1])
     except:
         pass
 
-    # 2. Differential Rhythm Test (Does the phase/amplitude change between groups?)
+    # 2. Pooled shared-rhythm parent (2 df): model0 vs model1. Tests whether a
+    #    COMMON rhythm exists, orthogonal to the group-by-rhythm interaction that
+    #    p_rhythm_diff tests -- so it can screen the correction family for
+    #    p_rhythm_diff without contaminating that test (Proposal III).
+    try:
+        anova_p = anova_lm(model0, model1)
+        out['p_pooled_rhythm'] = float(anova_p['Pr(>F)'].iloc[1])
+    except:
+        pass
+
+    # 3. Differential Rhythm Test (Does the phase/amplitude change between groups?)  model1 vs model2
     try:
         anova_b = anova_lm(model1, model2)
         out['p_rhythm_diff'] = float(anova_b['Pr(>F)'].iloc[1])
@@ -863,6 +877,89 @@ def _parse_p_setting(val, default_alpha, default_method):
     elif val is not None and str(val).strip():
         method = str(val).strip().upper()
     return method, alpha
+
+def _bh(series):
+    # Benjamini-Hochberg on a pandas Series, preserving index; NaNs stay NaN.
+    vals = pd.to_numeric(series, errors='coerce')
+    out = pd.Series(np.nan, index=series.index, dtype=float)
+    m = vals.notna()
+    if m.sum() > 0:
+        out.loc[vals[m].index] = multipletests(vals[m].values, method='fdr_bh')[1]
+    return out
+
+def _count_rhythm_discoveries(pp, pdiff, alpha, mode):
+    # How many targets the rhythm-difference gate calls significant, under the
+    # chosen correction (mode = 'all_targets' or 'screened_pooled').
+    if mode == 'screened_pooled':
+        screened = _bh(pp)
+        fam_idx = screened[screened < alpha].index
+        fam = pd.to_numeric(pdiff.loc[fam_idx], errors='coerce').dropna()
+        if len(fam) == 0:
+            return 0
+        return int((_bh(fam) < alpha).sum())
+    else:
+        return int((_bh(pdiff) < alpha).sum())
+
+def run_permutation_calibration(df_long, groups, alpha, mode, permute_B, seed=12345,
+                                expr_col='Value', group_col='Group', time_col='Time'):
+    # Permutes the group labels within each timepoint (a null in which the groups
+    # SHARE the rhythm -- no group-by-rhythm interaction), refits the global tests
+    # genome-wide, and counts how many targets the rhythm-difference gate FALSELY
+    # calls significant. Compares observed vs the permutation null -> an empirical
+    # FDR for the gate, measured inside CODAC's own engine (Proposal III check).
+    if permute_B is None or int(permute_B) <= 0:
+        return None
+    permute_B = int(permute_B)
+
+    def _global_pvals(dfl):
+        d = dfl
+        if 'cos_t' not in d.columns or 'sin_t' not in d.columns:
+            d = dfl.copy()
+            omega = 2 * np.pi / 24.0
+            _t = pd.to_numeric(d[time_col], errors='coerce').astype(float)
+            d['cos_t'] = np.cos(omega * _t)
+            d['sin_t'] = np.sin(omega * _t)
+        pp, pdf = {}, {}
+        for g, sub in d.groupby('Gene'):
+            m0, m1, m2 = fit_multigroup_models(sub, expr_col=expr_col, group_col=group_col)
+            t = get_global_tests(m0, m1, m2, group_col=group_col)
+            pp[g] = t['p_pooled_rhythm']
+            pdf[g] = t['p_rhythm_diff']
+        return pd.Series(pp), pd.Series(pdf)
+
+    print("\n" + "=" * 70, flush=True)
+    print(f"   PERMUTATION CALIBRATION OF THE RHYTHM-DIFFERENCE GATE (B={permute_B})", flush=True)
+    print(f"   mode = {mode} | alpha = {alpha} | this is a diagnostic and can be slow", flush=True)
+    print("=" * 70, flush=True)
+
+    pp_obs, pdf_obs = _global_pvals(df_long)
+    observed = _count_rhythm_discoveries(pp_obs, pdf_obs, alpha, mode)
+
+    rng = np.random.default_rng(seed)
+    null_counts = []
+    for _ in tqdm(range(permute_B), desc="Permutations", unit="perm"):
+        perm = df_long.copy()
+        perm[group_col] = perm.groupby(['Gene', time_col])[group_col].transform(
+            lambda s: rng.permutation(s.values))
+        pp_b, pdf_b = _global_pvals(perm)
+        null_counts.append(_count_rhythm_discoveries(pp_b, pdf_b, alpha, mode))
+    null_counts = np.array(null_counts, dtype=float)
+
+    null_mean = float(np.mean(null_counts))
+    emp_fdr = (null_mean / observed) if observed > 0 else float('nan')
+    report = {
+        'mode': mode, 'alpha': alpha, 'B': permute_B,
+        'observed_discoveries': int(observed),
+        'null_mean_discoveries': null_mean,
+        'null_q95_discoveries': float(np.quantile(null_counts, 0.95)) if len(null_counts) else float('nan'),
+        'empirical_FDR': emp_fdr,
+    }
+    print(f"   observed discoveries      : {report['observed_discoveries']}")
+    print(f"   null mean (false) disc.   : {report['null_mean_discoveries']:.2f}")
+    print(f"   null 95th percentile      : {report['null_q95_discoveries']:.1f}")
+    print(f"   empirical FDR (null/obs)  : {report['empirical_FDR']:.3f}")
+    print("=" * 70, flush=True)
+    return report
 
 #-------------------------------------------------------------------
 # (Re)assign the biological categories from a chosen p-value source
@@ -1865,7 +1962,7 @@ def _export_excel_formatted(df, file_path):
     # ==========================================
     # 4. Merge Global Columns and Color
     # ==========================================
-    columns_gene = ['Target', 'p_global_rhythm', 'p_global_rhythm_FDR', 'p_rhythm_diff', 'p_rhythm_diff_FDR', 'p_mesor_diff', 'p_mesor_diff_FDR',
+    columns_gene = ['Target', 'p_global_rhythm', 'p_global_rhythm_FDR', 'p_pooled_rhythm', 'p_pooled_rhythm_FDR', 'p_rhythm_diff', 'p_rhythm_diff_FDR', 'p_rhythm_diff_FDR_screened', 'rhythm_screen_pass', 'rhythm_diff_family_size', 'rhythm_diff_gate_used', 'p_mesor_diff', 'p_mesor_diff_FDR',
                     'Grouping', 'Grouping_Model', 'Grouping_Confidence', 'Grouping_IC_Gap',
                     'Grouping_Mesor', 'Grouping_Mesor_Model', 'Grouping_Mesor_Confidence', 'Grouping_Mesor_IC_Gap']
 
@@ -2053,6 +2150,29 @@ def main():
         p_value_global = 'FDR'
     print(f"[INFO] p-value settings: rhythmicity={p_value_option}@{alpha_rhythm}, "
           f"comparison={p_value_comparison}@{alpha_comparison}, global gates={p_value_global}@{alpha_global}.")
+
+    # How the p_rhythm_diff gate is multiple-testing corrected (Proposal III):
+    #   'all_targets'     (default) -- Benjamini-Hochberg over every target
+    #                                  (genome-wide); conservative, can lose power
+    #                                  because most targets never read the test.
+    #   'screened_pooled'           -- two-stage: BH the p_rhythm_diff only among
+    #                                  targets that pass the orthogonal pooled
+    #                                  shared-rhythm screen (p_pooled_rhythm_FDR),
+    #                                  recovering power. The genome-wide column is
+    #                                  still reported (antiphase blind-spot track).
+    rhythm_diff_correction = str(current_vars.get('rhythm_diff_correction', 'all_targets')).strip().lower()
+    if rhythm_diff_correction not in ('all_targets', 'screened_pooled'):
+        print(f"[WARN] Unknown rhythm_diff_correction '{rhythm_diff_correction}'; falling back to 'all_targets'.")
+        rhythm_diff_correction = 'all_targets'
+    print(f"[INFO] p_rhythm_diff correction: {rhythm_diff_correction}.")
+
+    # Optional permutation calibration of the rhythm-difference gate (diagnostic;
+    # 0 = off). Set e.g. permute_B = 100 to estimate the gate's empirical FDR
+    # inside CODAC's engine (see run_permutation_calibration). Can be slow.
+    try:
+        permute_B = int(current_vars.get('permute_B', 0) or 0)
+    except (TypeError, ValueError):
+        permute_B = 0
 
     missing_data_action = current_vars.get('missing_data_action', 'KEEP')  # 'KEEP', 'IMPUTE' or 'REMOVE'
     exclude_medium = current_vars.get('exclude_medium', True)
@@ -2577,16 +2697,43 @@ def main():
             # back to "shared", never the other way, so this is a one-directional
             # override of the in-loop (raw-gated) decision.
             if not df_global.empty:
-                df_global = add_global_fdr(df_global, ['p_global_rhythm', 'p_rhythm_diff', 'p_mesor_diff'])
+                df_global = add_global_fdr(df_global, ['p_global_rhythm', 'p_pooled_rhythm', 'p_rhythm_diff', 'p_mesor_diff'])
+
+                # Two-stage screened correction for p_rhythm_diff (Proposal III):
+                # screen targets on the orthogonal pooled shared-rhythm test, then
+                # BH p_rhythm_diff only within the screened family. The genome-wide
+                # p_rhythm_diff_FDR column is always kept too (antiphase blind-spot
+                # track). Only the rhythm gate switches; the mesor axis stays
+                # genome-wide.
+                _pool_fdr = pd.to_numeric(df_global.get('p_pooled_rhythm_FDR'), errors='coerce')
+                screen_pass = (_pool_fdr < alpha_global).fillna(False)
+                df_global['rhythm_screen_pass'] = screen_pass
+                df_global['p_rhythm_diff_FDR_screened'] = np.nan
+                _fam = pd.to_numeric(df_global.loc[screen_pass, 'p_rhythm_diff'], errors='coerce').dropna()
+                if len(_fam) > 0:
+                    df_global.loc[_fam.index, 'p_rhythm_diff_FDR_screened'] = multipletests(
+                        _fam.values, method='fdr_bh')[1]
+                df_global['rhythm_diff_family_size'] = int(len(_fam))
+                df_global['rhythm_diff_gate_used'] = rhythm_diff_correction
+
                 if p_value_global == 'FDR':
                     def _split(s):
                         s = "" if (s is None or (isinstance(s, float) and pd.isna(s))) else str(s)
                         return [x for x in s.split(",") if x]
                     for idx in df_global.index:
                         ag = _split(df_global.at[idx, '_all_groups']) if '_all_groups' in df_global.columns else []
-                        # --- rhythm axis: search ran (conf not NaN) but FDR gate now closed ---
-                        pr = df_global.at[idx, 'p_rhythm_diff_FDR'] if 'p_rhythm_diff_FDR' in df_global.columns else np.nan
-                        if pd.notna(df_global.at[idx, 'Grouping_Confidence']) and pd.notna(pr) and pr > alpha_global:
+                        # Effective rhythm gate, per the chosen correction mode.
+                        if rhythm_diff_correction == 'screened_pooled':
+                            if not bool(df_global.at[idx, 'rhythm_screen_pass']):
+                                gate_closed = True          # not screened -> don't test the difference
+                            else:
+                                ps = df_global.at[idx, 'p_rhythm_diff_FDR_screened']
+                                gate_closed = pd.isna(ps) or ps > alpha_global
+                        else:
+                            pr = df_global.at[idx, 'p_rhythm_diff_FDR'] if 'p_rhythm_diff_FDR' in df_global.columns else np.nan
+                            gate_closed = pd.notna(pr) and pr > alpha_global
+                        # --- rhythm axis: search ran (conf not NaN) but gate now closed ---
+                        if pd.notna(df_global.at[idx, 'Grouping_Confidence']) and gate_closed:
                             R = _split(df_global.at[idx, '_R_rhythm'])
                             model = (frozenset(R), (tuple(sorted(R)),) if R else tuple())
                             df_global.at[idx, 'Grouping'] = ("All groups rhythmic (shared rhythm)"
@@ -2594,7 +2741,7 @@ def main():
                             df_global.at[idx, 'Grouping_Confidence'] = np.nan
                             df_global.at[idx, 'Grouping_IC_Gap'] = np.nan
                             df_global.at[idx, 'Grouping_Model'] = _rhythm_code(model, ag)
-                        # --- mesor axis: search ran but FDR gate now closed ---
+                        # --- mesor axis: search ran but FDR gate now closed (always genome-wide) ---
                         pm = df_global.at[idx, 'p_mesor_diff_FDR'] if 'p_mesor_diff_FDR' in df_global.columns else np.nan
                         if pd.notna(df_global.at[idx, 'Grouping_Mesor_Confidence']) and pd.notna(pm) and pm > alpha_global:
                             blocks = (tuple(sorted(ag)),) if ag else tuple()
@@ -2641,6 +2788,9 @@ def main():
                     row_dict['p_global_rhythm_FDR'] = df_gbl.loc[0, 'p_global_rhythm_FDR'] if (not df_gbl.empty and 'p_global_rhythm_FDR' in df_gbl.columns) else ""
                     row_dict['p_rhythm_diff'] = df_gbl.loc[0, 'p_rhythm_diff'] if not df_gbl.empty else ""
                     row_dict['p_rhythm_diff_FDR'] = df_gbl.loc[0, 'p_rhythm_diff_FDR'] if (not df_gbl.empty and 'p_rhythm_diff_FDR' in df_gbl.columns) else ""
+                    for _c in ('p_pooled_rhythm', 'p_pooled_rhythm_FDR', 'rhythm_screen_pass',
+                               'p_rhythm_diff_FDR_screened', 'rhythm_diff_family_size', 'rhythm_diff_gate_used'):
+                        row_dict[_c] = df_gbl.loc[0, _c] if (not df_gbl.empty and _c in df_gbl.columns) else ""
                     row_dict['p_mesor_diff'] = df_gbl.loc[0, 'p_mesor_diff'] if (not df_gbl.empty and 'p_mesor_diff' in df_gbl.columns) else ""
                     row_dict['p_mesor_diff_FDR'] = df_gbl.loc[0, 'p_mesor_diff_FDR'] if (not df_gbl.empty and 'p_mesor_diff_FDR' in df_gbl.columns) else ""
                     _has_grp = (not df_gbl.empty) and ('Grouping' in df_gbl.columns)
@@ -2701,7 +2851,7 @@ def main():
 
             # Final column sorting
             col_order = [
-                'Gene', 'p_global_rhythm', 'p_global_rhythm_FDR', 'p_rhythm_diff', 'p_rhythm_diff_FDR', 'p_mesor_diff', 'p_mesor_diff_FDR',
+                'Gene', 'p_global_rhythm', 'p_global_rhythm_FDR', 'p_pooled_rhythm', 'p_pooled_rhythm_FDR', 'p_rhythm_diff', 'p_rhythm_diff_FDR', 'p_rhythm_diff_FDR_screened', 'rhythm_screen_pass', 'rhythm_diff_family_size', 'rhythm_diff_gate_used', 'p_mesor_diff', 'p_mesor_diff_FDR',
                 'Grouping', 'Grouping_Model', 'Grouping_Confidence', 'Grouping_IC_Gap',
                 'Grouping_Mesor', 'Grouping_Mesor_Model', 'Grouping_Mesor_Confidence', 'Grouping_Mesor_IC_Gap',
                 'Group', 'P-value', 'P-value (FDR)', 'R2', 'Mesor', 'Amplitude', 'amp_limit', 'Phase', 'Phase (h:min)', 'Interval', 'Period',
@@ -2726,7 +2876,7 @@ def main():
             # tested" ("") and "NLS failed" (NaN) sentinels both become NaN, which
             # is the correct numeric representation of a missing value.
             numeric_cols = [
-                'p_global_rhythm', 'p_global_rhythm_FDR', 'p_rhythm_diff', 'p_rhythm_diff_FDR', 'p_mesor_diff', 'p_mesor_diff_FDR',
+                'p_global_rhythm', 'p_global_rhythm_FDR', 'p_pooled_rhythm', 'p_pooled_rhythm_FDR', 'p_rhythm_diff', 'p_rhythm_diff_FDR', 'p_rhythm_diff_FDR_screened', 'rhythm_diff_family_size', 'p_mesor_diff', 'p_mesor_diff_FDR',
                 'Grouping_Confidence', 'Grouping_IC_Gap',
                 'Grouping_Mesor_Confidence', 'Grouping_Mesor_IC_Gap',
                 'P-value', 'P-value (FDR)',
@@ -2921,6 +3071,18 @@ def main():
     consolidated_path = generate_heatmap_consolidated(_dfg, results, df_long, n_observations, groups, results_dir, time_label=time_label)
     # Bundle everything (consolidated first, then per-model) into one PDF (dryR-style).
     bundle_heatmaps_pdf(([consolidated_path] if consolidated_path else []) + (model_heatmap_paths or []), results_dir)
+
+    # Optional: permutation calibration of the rhythm-difference gate (diagnostic).
+    if permute_B and permute_B > 0:
+        try:
+            _cal = run_permutation_calibration(df_long, groups, alpha_global,
+                                               rhythm_diff_correction, permute_B)
+            if _cal:
+                _cal_path = os.path.join(results_dir, 'rhythm_diff_calibration.csv')
+                pd.DataFrame([_cal]).to_csv(_cal_path, index=False)
+                print(f"[INFO] Calibration report saved to {_cal_path}")
+        except Exception as _e:
+            print(f"[WARN] Permutation calibration failed: {_e}")
     # Save the data from the first group to maintain compatibility with Spyder.
     if heatmaps_results and len(heatmaps_results) > 0:
         first_group = list(heatmaps_results.keys())[0]

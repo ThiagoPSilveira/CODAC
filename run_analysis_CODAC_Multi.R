@@ -113,6 +113,8 @@ analysis_results <- codac_multi(
   p_value_comparison  = 'RAW',        # PAIRWISE decisions: 'RAW' or 'FDR'. Own alpha via c('RAW', 0.05)
   selection_criterion = 'BIC',        # MULTI-GROUP grouping criterion: 'BIC' (conservative, default) or 'AICc'
   p_value_global      = 'FDR',        # GLOBAL gates: 'FDR' (default) or 'RAW'. Own alpha via c('FDR', 0.1)
+  rhythm_diff_correction = 'all_targets', # p_rhythm_diff FDR: 'all_targets' (genome-wide) or 'screened_pooled' (two-stage, recovers power)
+  permute_B           = 0,             # diagnostic: permutations to calibrate the gate's empirical FDR (0 = off)
   min_rhythmicity     = 'HIGH',       # 'ARRHYTHMIC','LOW','MEDIUM','HIGH','EXTREMELY HIGH'
   rhythmicity_cutoff  = 'HIGH',       # Rhythmicity level to count a group as rhythmic (excludes MEDIUM by default)
   amp_stringency      = 0.5,          # Amplitude-filter strictness: 0 = off, 0.5 = default, 1 = strictest
