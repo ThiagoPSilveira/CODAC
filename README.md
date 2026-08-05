@@ -162,6 +162,13 @@ pairs), `rhythmicity_cutoff` (tier at which a group counts as rhythmic, default
 selection: `'BIC'` (default, conservative) or `'AICc'` (more sensitive). See §6.5.
 `p_value_global` — which p-value gates the grouping: `'FDR'` (default,
 Benjamini-Hochberg across all targets) or `'RAW'`. See §6.5.
+`rhythm_diff_correction` — how the `p_rhythm_diff` gate is FDR-corrected:
+`'all_targets'` (default, genome-wide) or `'screened_pooled'` (two-stage — BH only
+among targets passing an orthogonal pooled shared-rhythm screen, which recovers the
+power a genome-wide correction loses when most targets are arrhythmic). See §6.5.
+`permute_B` — diagnostic only (default `0` = off): number of label permutations
+used to estimate the rhythm-difference gate's **empirical FDR** inside CODAC's own
+engine. Writes `rhythm_diff_calibration.csv`. Slow, so use a modest `B` (e.g. 100).
 
 ---
 
@@ -285,17 +292,38 @@ comparisons) and adds a **target-level** view: three global tests and the best
 | Column | Question it answers |
 |---|---|
 | `p_global_rhythm` | Does *any* group show a rhythm? (small = at least one group is rhythmic) |
+| `p_pooled_rhythm` | Does a rhythm *common to the groups* exist? (2-df shared-rhythm test, orthogonal to `p_rhythm_diff`; used to screen the correction family — see below) |
 | `p_rhythm_diff` | Do the rhythms *differ between groups*? (small = the rhythm is not the same everywhere) |
 | `p_mesor_diff` | Do the *baselines* differ between groups? (small = at least one group has a different mesor) |
 
 Each of these is also reported Benjamini-Hochberg–corrected across all targets, in
-a companion `_FDR` column (`p_global_rhythm_FDR`, `p_rhythm_diff_FDR`,
-`p_mesor_diff_FDR`). Because these tests run once per target over thousands of
-targets, the corrected value is the right one for a genome-wide screen. The
-`p_value_global` parameter chooses which drives the grouping **gate** —
+a companion `_FDR` column (`p_global_rhythm_FDR`, `p_pooled_rhythm_FDR`,
+`p_rhythm_diff_FDR`, `p_mesor_diff_FDR`). Because these tests run once per target
+over thousands of targets, the corrected value is the right one for a genome-wide
+screen. The `p_value_global` parameter chooses which drives the grouping **gate** —
 `'FDR'` (default) or `'RAW'` — while both columns are always exported. With the
 default, a target whose rhythm difference is significant raw but not after
 correction is folded back into "shared rhythm" rather than split.
+
+**Recovering power with a screened correction (`rhythm_diff_correction`).**
+Correcting `p_rhythm_diff` genome-wide is over-conservative: that test is only ever
+*read* for targets with two or more rhythmic groups, yet the correction counts
+every target in the family, so in a dataset that is mostly arrhythmic the gate
+closes for almost everything. The `'screened_pooled'` mode fixes this with a
+two-stage design. The **pooled shared-rhythm** parent test (`p_pooled_rhythm`, 2 df
+— does a rhythm common to the groups exist?) is *orthogonal* to the group-by-rhythm
+interaction that `p_rhythm_diff` tests (4 df), so screening on it does not bias the
+child test. Targets passing the (BH-corrected) pooled screen form the family within
+which `p_rhythm_diff` is then BH-corrected (`p_rhythm_diff_FDR_screened`), which is
+always ≤ the genome-wide value — recovering power. The genome-wide
+`p_rhythm_diff_FDR` is still reported, because the pooled screen has one blind spot
+(groups in near-perfect antiphase cancel in the pooled rhythm); that column is the
+track for catching those. Companion columns: `rhythm_screen_pass`,
+`rhythm_diff_family_size`, `p_rhythm_diff_FDR_screened`, and `rhythm_diff_gate_used`.
+The default (`'all_targets'`) keeps the genome-wide gate. The `permute_B` diagnostic
+permutes group labels within each timepoint (a null in which the groups share the
+rhythm) to estimate the gate's **empirical FDR** in CODAC's own engine, written to
+`rhythm_diff_calibration.csv`.
 
 **The grouping** — the single best configuration of which groups share the same
 rhythm, and, separately, which share the same baseline:
@@ -364,7 +392,7 @@ confidence is `NA`.
 
 Use **`BIC`** (the default) for genome-wide screens and whenever avoiding false
 "groups differ" calls matters more than catching every subtle one — it penalizes
-complexity more strongly and is the conservative. Use
+complexity more strongly and is the conservative, dryR-aligned choice. Use
 **`AICc`** for targeted analyses (a handful of candidate targets) or when maximum
 sensitivity to small amplitude/phase differences is the priority and a higher
 false-positive rate is acceptable. When the two criteria would disagree on a
