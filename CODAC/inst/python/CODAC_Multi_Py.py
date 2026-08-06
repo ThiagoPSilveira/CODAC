@@ -1050,6 +1050,60 @@ def assign_categories(df_comparisons, p_source='RAW', alpha=0.05):
     return df_comparisons
 
 #-------------------------------------------------------------------
+# Recompute the RHYTHM-axis grouping using the FINAL per-group tier.
+# The per-group counter gains its p-value point only after the genome-wide loop
+# (the FDR p-value is not known until then), so the in-loop rhythmic set R was
+# built one point short. Here R is rebuilt from the finalized tiers so it matches
+# the reported `Probability`. The mesor axis does not use the tier, so it is left
+# as computed in the loop.
+#-------------------------------------------------------------------
+def _recompute_rhythm_grouping(df_global, df_long, final_counters, rhythmicity_cutoff,
+                               selection_criterion, alpha_global):
+    if df_global is None or df_global.empty or not final_counters:
+        return df_global
+    cut = {'ARRHYTHMIC': 0, 'LOW': 1, 'MEDIUM': 2, 'HIGH': 3, 'EXTREMELY HIGH': 4}.get(
+        str(rhythmicity_cutoff).upper(), 3)
+    by_gene = {g: sub for g, sub in df_long.groupby('Gene')}
+    for idx in df_global.index:
+        gene = df_global.at[idx, 'Gene']
+        counters = final_counters.get(gene, {})
+        gig = sorted(counters.keys())
+        if not gig:
+            continue
+        R = [g for g in gig if counters.get(g, 0) >= cut]
+        p_gate = pd.to_numeric(pd.Series([df_global.at[idx, 'p_rhythm_diff']]), errors='coerce').iloc[0]
+
+        if len(R) >= 2 and pd.isna(p_gate):
+            g_lab, g_conf, g_gap, g_code = "Undetermined (insufficient data)", np.nan, np.nan, ""
+        elif len(R) >= 2 and (p_gate <= alpha_global):
+            sub = by_gene.get(gene)
+            dg = sub[['Group', 'Time', 'Value']].rename(
+                columns={'Group': 'group', 'Time': 'time', 'Value': 'expr'}).copy()
+            dg['time'] = pd.to_numeric(dg['time'], errors='coerce')
+            dg = add_harmonic_terms(dg, 'time', 24.0)
+            g_lab, g_conf, g_gap, g_code = select_rhythm_grouping(
+                dg, gig, R, criterion=selection_criterion,
+                time_col='time', expr_col='expr', group_col='group')
+        else:
+            model = (frozenset(R), (tuple(sorted(R)),) if R else tuple())
+            if len(R) == 0:
+                g_lab = "All groups arrhythmic"
+            elif len(R) == len(gig):
+                g_lab = "All groups rhythmic (shared rhythm)"
+            else:
+                g_lab = _rhythm_label(model, gig)
+            g_conf, g_gap = np.nan, np.nan
+            g_code = _rhythm_code(model, gig)
+
+        df_global.at[idx, 'Grouping'] = g_lab
+        df_global.at[idx, 'Grouping_Confidence'] = g_conf
+        df_global.at[idx, 'Grouping_IC_Gap'] = g_gap
+        df_global.at[idx, 'Grouping_Model'] = g_code
+        df_global.at[idx, '_R_rhythm'] = ",".join(sorted(R))
+        df_global.at[idx, '_all_groups'] = ",".join(sorted(gig))
+    return df_global
+
+#-------------------------------------------------------------------
 # Reconcile the pairwise Biological_Category with the grouping model.
 # The grouping is authoritative for "changed vs unchanged": for a pair of
 # BOTH-rhythmic groups, same rhythm-block -> Cat 4 (unchanged); different blocks
@@ -2628,6 +2682,13 @@ def main():
             # The tier is awarded from the number of criteria MET (4 met = Extremely High).
             r['probability'] = classification_map.get(r['counter'], "ARRHYTHMIC")
 
+        # Final per-group tier per gene (INCLUDING the post-loop p-value point),
+        # for the post-loop rhythm-grouping recomputation below. The in-loop
+        # gene_counters missed this point, so R must be rebuilt from these.
+        final_counters = {}
+        for r in results:
+            final_counters.setdefault(r.get('gene'), {})[r.get('group_name')] = int(r.get('counter', 0))
+
         # Converting to DataFrame for easy manipulation.
         df_results = pd.DataFrame(results)
 
@@ -2689,6 +2750,12 @@ def main():
             # 1. Initialize dataframes tolerating that they might be empty
             df_global = pd.DataFrame(global_results).rename(
                 columns={'gene': 'Gene'}) if global_results else pd.DataFrame()
+
+            # Rebuild the rhythm grouping from the FINAL per-group tiers (the
+            # in-loop R was one p-value point short -- see the helper).
+            df_global = _recompute_rhythm_grouping(
+                df_global, df_long, final_counters, rhythmicity_cutoff,
+                selection_criterion, alpha_global)
 
             # Genome-wide FDR on the global gate p-values, then -- if the user
             # gates on FDR (default) -- re-close the gate for targets that pass
