@@ -392,7 +392,7 @@ confidence is `NA`.
 
 Use **`BIC`** (the default) for genome-wide screens and whenever avoiding false
 "groups differ" calls matters more than catching every subtle one — it penalizes
-complexity more strongly and is the conservative, dryR-aligned choice. Use
+complexity more strongly and is the conservative. Use
 **`AICc`** for targeted analyses (a handful of candidate targets) or when maximum
 sensitivity to small amplitude/phase differences is the priority and a higher
 false-positive rate is acceptable. When the two criteria would disagree on a
