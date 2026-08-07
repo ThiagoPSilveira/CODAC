@@ -9,9 +9,9 @@ Python setup needed):
 | Function | Tool | Use it when… |
 |---|---|---|
 | `codac_single()` | **Single** | You have **one group** and want per-target rhythmicity (fixed 24 h period). |
-| `codac_flex()` | **Flex** | You want the method to **choose the waveform** (standard, linear trend, damped, rapidly damped) — good for bioluminescence and multi-cycle data. |
+| `codac_flex()` | **Flex** | You want the method to **choose the waveform** (standard, linear trend, damped, rapidly damped) |
 | `codac_compare()` | **Compare** | You have **two or more groups** and want **pairwise** differential rhythmicity (group 1 vs group 2, etc.). |
-| `codac_multi()` | **Multi** | You have **several groups** and want the single best **grouping** of them (which groups share a rhythm / a baseline), à la dryR but on the CODA engine. |
+| `codac_multi()` | **Multi** | You have **several groups** and want the single best **grouping** of them (which groups share a rhythm / a baseline) |
 
 > This is a Python analysis engine wrapped as an R package. **You do not need to
 > install Python or any Python library by hand** — the package sets that up
@@ -99,7 +99,7 @@ or the column count is off, switch `dec` between `"."` and `","` and rerun.
 
 ### Missing samples — `codac_check_columns()`
 
-The engines read the value columns **by position** and expect exactly
+This function reads the value columns **by position** and expect exactly
 `groups × timepoints × replicates` of them. If some samples are physically absent
 from the file, the count no longer matches and the analysis stops with an
 "expected N, found M" error.
@@ -174,9 +174,7 @@ engine. Writes `rhythm_diff_calibration.csv`. Slow, so use a modest `B` (e.g. 10
 
 ## 5. The amplitude filter (`amp_stringency`)
 
-A rhythm is only trusted if its amplitude stands out from noise — a target can be
-statistically significant yet oscillate too little to matter biologically. CODAC
-applies an **adaptive** per-target threshold (reported as `Amp. Minimum`), based
+CODAC applies an **adaptive** per-target threshold (reported as `Amp. Minimum`), based
 on the target's expression level and variability, with an absolute noise floor.
 One dial controls how demanding it is:
 
@@ -253,9 +251,9 @@ For each target, Compare gives the per-group fits (§6.1) plus one row per
 | `Delta_Mesor`, `Delta_Amplitude`, `Delta_Phase` | The change in each component, computed as **Group 1 − Group 2** (matching the `Group 1 vs Group 2` label). A positive value means the first group is higher. |
 | `p_diff_mesor`, `p_diff_amplitude`, `p_diff_phase` | The raw p-value for a difference in each component (nested NLS F-test). |
 | `p_diff_mesor_FDR`, `p_diff_amplitude_FDR`, `p_diff_phase_FDR` | The Benjamini-Hochberg–adjusted version of each, applied **per component within each pair**. `p_value_comparison` chooses which set (raw or FDR) drives the decisions; both are always exported so you can compare. |
-| `LossGain_Confidence` | For `Cat 2`/`Cat 3` only (rhythmic in one group): `High confidence` when the amplitude also differs significantly, `Weak evidence` otherwise — a guard against over-calling a rhythm gain/loss (cf. Pelikan et al., 2022). |
+| `LossGain_Confidence` | For `Cat 2`/`Cat 3` only (rhythmic in one group): `High confidence` when the amplitude also differs significantly, `Weak evidence` otherwise — a guard against over-calling a rhythm gain/loss. 
 
-Amplitude and phase are compared **only when both groups are rhythmic**; the mesor
+Phase is compared **only when both groups are rhythmic**; the mesor
 is handled separately (`Mesor_Change`), so it does not enter these categories:
 
 | Category | Meaning |
@@ -270,12 +268,11 @@ is handled separately (`Mesor_Change`), so it does not enter these categories:
 
 ### 6.5 CODAC_Multi (global tests + grouping)
 
-Multi keeps everything Compare produces (the per-group fits and the pairwise
-comparisons) and adds a **target-level** view: three global tests and the best
+Multi keeps everything Compare produces and adds a **target-level** view: three global tests and the best
 **grouping** of the groups on two independent axes.
 
 > **The pairwise `Biological_Category` is reconciled with the grouping.** In Multi
-> (unlike Compare, which is purely pairwise), the grouping is authoritative for the
+> the grouping is authoritative for the
 > "changed vs. unchanged" call: for a pair of both-rhythmic groups, if they sit in
 > the **same** rhythm block the category is `Cat 4` (unchanged); if they sit in
 > **different** blocks it is `Cat 5/6/7` (changed), with the specific component
