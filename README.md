@@ -84,13 +84,13 @@ For **Compare** and **Multi** (several groups): the value columns are
 `groups × timepoints × replicates`, ordered **by group** — for each group, all
 timepoints, each with its replicates.
 
-### ⚠️ Group order (Compare / Multi)
+### Group order (Compare / Multi)
 
 The `groups` argument order **must match** the order of the column blocks in the
 file, otherwise values are assigned to the wrong group. Group names in `groups`
 and `comparisons` must also match **exactly** (watch for stray underscores).
 
-### ⚠️ Decimal separator — the most common mistake
+### Decimal separator — the most common mistake
 
 Numbers use **either** a period (`12.34`) **or** a comma (`12,34`); tell R which
 via the `dec` argument in the run script. If wrong, numbers are read as text and
