@@ -145,7 +145,7 @@ Python engine automatically.
 | `missing_data_action` | `'KEEP'` (mask NaNs, default), `'IMPUTE'` (fill from surviving replicates) or `'REMOVE'` |
 | `plot_flag` / `plot_all` / `targets_to_plot` | Whether to draw per-target plots, and for which targets |
 | `time_label` | X-axis label: `'ZT'`, `'CT'`, or `'Clock'` |
-| `interval_var` | (`1`/`2`/`3`). The value of 1 is more stringent. 
+| `interval_var` | (`1`/`2`/`3`). Sets the width of the noise band used by the waveform prominence criterion. 
 
 ### Tool-specific parameters
 
@@ -228,7 +228,7 @@ Flex fits four models per target and picks the best by AICc, adding:
 
 | Column | Meaning |
 |---|---|
-| `Winning_Model` | Which model best described the target: `standard` (constant amplitude), `linear` (with a baseline trend), `dampened` (amplitude decaying exponentially), or `dampened_fast` (decaying faster than exponential). |
+| `Winning_Model` | Which model best described the target: `standard` (constant amplitude), `linear` (with a baseline trend), `damped` (amplitude decaying exponentially), or `damped_fast` (decaying faster than exponential). |
 | `AICc` | The corrected Akaike Information Criterion of the winning model. AICc balances fit against the number of parameters, so a more complex model wins only if it earns it. It is **relative** — meaningful only comparing the four models of the *same* target, not across targets, and not an absolute goodness measure (that is R²/`Probability`). |
 | `Flex_Parameter` | The extra coefficient of the winning model: the slope for `linear`, the decay rate for the damped models (0 for `standard`). |
 | `Half_Life` | For the damped models only: the time for the amplitude to fall to half its initial value. Empty for `standard`/`linear`. |
