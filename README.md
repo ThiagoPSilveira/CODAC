@@ -145,12 +145,12 @@ Python engine automatically.
 | `missing_data_action` | `'KEEP'` (mask NaNs, default), `'IMPUTE'` (fill from surviving replicates) or `'REMOVE'` |
 | `plot_flag` / `plot_all` / `targets_to_plot` | Whether to draw per-target plots, and for which targets |
 | `time_label` | X-axis label: `'ZT'`, `'CT'`, or `'Clock'` |
+| `interval_var` | (`1`/`2`/`3`). The value of 1 is more stringent. 
 
 ### Tool-specific parameters
 
 **Flex:** `period_mode` (`'fixed'` or `'variable'`), `fixed_period` (default `24`),
-`period_lower`/`period_upper` (variable-mode bounds, default `20`/`28`),
-`interval_var` (`1`/`2`/`3`).
+`period_lower`/`period_upper` (variable-mode bounds, default `20`/`28`). 
 
 **Compare / Multi:** `groups`, `comparisons` (list of pairs, or `NULL` for all
 pairs), `rhythmicity_cutoff` (tier at which a group counts as rhythmic, default
