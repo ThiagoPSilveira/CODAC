@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="CODAC_logo.jpeg" alt="Logo do projeto CODAC" width="300"/>
+</p>
+
 # CODAC
 
 **Circadian Oscillation Detection, Analysis and Comparison**
