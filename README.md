@@ -159,13 +159,13 @@ pairs), `rhythmicity_cutoff` (tier at which a group counts as rhythmic, default
 `'FDR'`, default `'RAW'`).
 
 **Multi only:** `selection_criterion` — the information criterion for the grouping
-selection: `'BIC'` (default, conservative) or `'AICc'` (more sensitive). See §6.5.
+selection: `'BIC'` (default, conservative) or `'AICc'` (more sensitive). See 6.5.
 `p_value_global` — which p-value gates the grouping: `'FDR'` (default,
-Benjamini-Hochberg across all targets) or `'RAW'`. See §6.5.
+Benjamini-Hochberg across all targets) or `'RAW'`. See 6.5.
 `rhythm_diff_correction` — how the `p_rhythm_diff` gate is FDR-corrected:
 `'all_targets'` (default, genome-wide) or `'screened_pooled'` (two-stage — BH only
 among targets passing an orthogonal pooled shared-rhythm screen, which recovers the
-power a genome-wide correction loses when most targets are arrhythmic). See §6.5.
+power a genome-wide correction loses when most targets are arrhythmic). See 6.5.
 `permute_B` — diagnostic only (default `0` = off): number of label permutations
 used to estimate the rhythm-difference gate's **empirical FDR** inside CODAC's own
 engine. Writes `rhythm_diff_calibration.csv`. Slow, so use a modest `B` (e.g. 100).
