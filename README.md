@@ -230,10 +230,10 @@ Flex fits four models per target and picks the best by AICc, adding:
 
 | Column | Meaning |
 |---|---|
-| `Winning_Model` | Which model best described the target: `standard` (constant amplitude), `linear` (with a baseline trend), `damped` (amplitude decaying exponentially), or `damped_fast` (decaying faster than exponential). |
+| `Winning_Model` | Which model best described the target: `Standard` (constant amplitude), `Linear` (with a baseline trend), `Damped` (amplitude decaying exponentially), or `Damped_Fast` (decaying faster than exponential). |
 | `AICc` | The corrected Akaike Information Criterion of the winning model. 
-| `Flex_Parameter` | The extra coefficient of the winning model: the slope for `linear`, the decay rate for the damped models (0 for `standard`). |
-| `Half_Life` | For the damped models only: the time for the amplitude to fall to half its initial value. Empty for `standard`/`linear`. |
+| `Flex_Parameter` | The extra coefficient of the winning model: the slope for `Linear`, the decay rate for the damped models (0 for `Standard`). |
+| `Half_Life` | For the damped models only: the time for the amplitude to fall to half its initial value. Empty for `Standard`/`Linear`. |
 
 Because the linear and damped models change the waveform, Flex reports the fitted
 amplitude parameter **A** directly (rather than a peak-to-mesor distance).
