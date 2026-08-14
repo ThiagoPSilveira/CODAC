@@ -80,9 +80,9 @@ def cos_linear(x, k, a, f, m, T):
     r = (x / T) * (2 * np.pi)
     return k + a * np.cos(r - f) + (m * x)
 
-# 3. Dampened Cosine (4 parameters: k, a, f, d)
+# 3. Damped Cosine (4 parameters: k, a, f, d)
 # Equation: y = k + (a * e^(-d*x)) * cos(rx - f)
-def cos_dampened(x, k, a, f, d, T):
+def cos_damped(x, k, a, f, d, T):
     r = (x / T) * (2 * np.pi)
     # The exponential decay factor
     decay = np.exp(-d * x)
@@ -91,7 +91,7 @@ def cos_dampened(x, k, a, f, d, T):
 # 4. Cosine + Gaussian Damping (4 parameters: k, a, f, d)
 # Envelope decays as a Gaussian -> flattens faster at the tail than the
 # exponential model, matching desynchronization-driven amplitude loss.
-def cos_dampened_fast(x, k, a, f, d, T):
+def cos_damped_fast(x, k, a, f, d, T):
     r = (x / T) * (2 * np.pi)
     decay = np.exp(-((d * x) ** 2))
     return k + (a * decay) * np.cos(r - f)
@@ -222,13 +222,13 @@ def perform_flex_fit(X: np.ndarray, y: np.ndarray, fixed_period: bool = False, p
             'p0': [k0, a0, f0, 0.0],
             'bounds': ([min_y, 0.0, -2 * np.pi, -10.0], [max_y, amplitude_max, 2 * np.pi, 10.0])
         },
-        'Dampened': {
-            'func': cos_dampened,
+        'Damped': {
+            'func': cos_damped,
             'p0': [k0, a0, f0, 0.01],
             'bounds': ([min_y, 0.0, -2 * np.pi, 0.0], [max_y, amplitude_max, 2 * np.pi, 1.0])
         },
-        'Dampened_Fast': {
-            'func': cos_dampened_fast,
+        'Damped_Fast': {
+            'func': cos_damped_fast,
             'p0': [k0, a0, f0, 0.01],
             'bounds': ([min_y, 0.0, -2 * np.pi, 0.0], [max_y, amplitude_max, 2 * np.pi, 1.0])
         }
@@ -347,7 +347,7 @@ def calc_aicc(y_true: np.ndarray, y_pred: np.ndarray, k: int) -> float:
     Calculates the corrected Akaike Information Criterion (AICc).
     y_true: actual data points
     y_pred: predicted data points from the model
-    k: number of parameters in the model (e.g., 3 for Standard, 4 for Linear/Dampened)
+    k: number of parameters in the model (e.g., 3 for Standard, 4 for Linear/Damped)
     """
     n = len(y_true)
     rss = np.sum((y_true - y_pred) ** 2)
@@ -1034,7 +1034,7 @@ def main():
     elif _n_points < _flex_k + 1:
         print("\n" + "!" * 70)
         print(f"  [WARNING] Only {_n_points} points per target. The flexible models")
-        print(f"  (Linear, Dampened, Dampened_Fast) need >= {_flex_k + 1} points and will")
+        print(f"  (Linear, Damped, Damped_Fast) need >= {_flex_k + 1} points and will")
         print("  be SKIPPED. Only the Standard cosinor model will be fitted. For full")
         print("  model selection, use more timepoints or replicates.")
         print("!" * 70 + "\n")
@@ -1103,14 +1103,14 @@ def main():
         # Extract standard metrics for the report
         k_est, a_est, f_est = best_params[0], best_params[1], best_params[2]
         f_est = f_est % (2 * np.pi)  # Normalize phase to 0-2pi range
-        flex_param = best_params[3] if best_model in ['Linear', 'Dampened', 'Dampened_Fast'] else np.nan
+        flex_param = best_params[3] if best_model in ['Linear', 'Damped', 'Damped_Fast'] else np.nan
 
         # Half-life of the amplitude envelope (only meaningful for damped models).
         # Exponential:  a*exp(-d*x)      -> half-life = ln(2)/d
         # Gaussian:     a*exp(-(d*x)^2)  -> half-life = sqrt(ln(2))/d
-        if best_model == 'Dampened' and flex_param > 0:
+        if best_model == 'Damped' and flex_param > 0:
             half_life = np.log(2) / flex_param
-        elif best_model == 'Dampened_Fast' and flex_param > 0:
+        elif best_model == 'Damped_Fast' and flex_param > 0:
             half_life = np.sqrt(np.log(2)) / flex_param
         else:
             half_life = np.nan
@@ -1124,7 +1124,7 @@ def main():
         X_interp = np.linspace(x_data_min, x_data_max, 500)
 
         # Generate the smooth curve depending on the winning model
-        models_funcs = {'Standard': cos_standard, 'Linear': cos_linear, 'Dampened': cos_dampened,'Dampened_Fast': cos_dampened_fast}
+        models_funcs = {'Standard': cos_standard, 'Linear': cos_linear, 'Damped': cos_damped,'Damped_Fast': cos_damped_fast}
         winning_func = models_funcs[best_model]
 
         if is_fixed:
@@ -1300,9 +1300,9 @@ def main():
             # --- Box 2: Exclusive Flex info (model, AICc, extra parameter), below Box 1 ---
             if best_model == 'Linear':
                 extra_line = f'Trend (m): {flex_param:.3f}'
-            elif best_model == 'Dampened':
+            elif best_model == 'Damped':
                 extra_line = f'Damping (d): {flex_param:.3f}\nHalf-life: {half_life:.2f} h'
-            elif best_model == 'Dampened_Fast':
+            elif best_model == 'Damped_Fast':
                 extra_line = f'Damping (d): {flex_param:.3f}\nHalf-life: {half_life:.2f} h'
             else:
                 extra_line = 'No extra param'  # Standard has no extra parameter.
@@ -1672,8 +1672,8 @@ def main():
     model_color_map = {
         'Standard': '#0072B2',  # blue
         'Linear': '#E69F00',  # orange
-        'Dampened': '#009E73',  # green
-        'Dampened_Fast': '#CC79A7',  # pink/magenta
+        'Damped': '#009E73',  # green
+        'Damped_Fast': '#CC79A7',  # pink/magenta
     }
     pie_colors = [model_color_map.get(m, '#999999') for m in model_counts.index]
 
