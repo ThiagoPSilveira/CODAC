@@ -179,8 +179,7 @@ engine. Writes `rhythm_diff_calibration.csv`. Slow, so use a modest `B` (e.g. 10
 ## 5. The amplitude filter (`amp_stringency`)
 
 CODAC applies an **adaptive** per-target threshold (reported as `Amp. Minimum`), based
-on the target's expression level and variability, with an absolute noise floor.
-One dial controls how demanding it is:
+on the target's expression level and variability, with an absolute noise floor, as shown below: 
 
 | `amp_stringency` | Effect |
 |---|---|
@@ -204,23 +203,22 @@ These describe the fitted rhythm of each target (per group, for Compare/Multi):
 
 | Column | Meaning |
 |---|---|
-| `Target` | The gene/target name (case preserved from your file). |
-| `Mesor` | The rhythm-adjusted mean — the baseline the oscillation sits on. Not the same as a simple average when data are uneven. |
-| `Amplitude` | The size of the oscillation. For Single/Compare/Multi it is the **peak-to-mesor distance** of the fitted curve (equals the cosine amplitude for a pure rhythm); for Flex it is the fitted amplitude parameter of the winning model (see §6.3). |
+| `Target` | The target name (case preserved from your file). |
+| `Mesor` | The rhythm-adjusted mean. |
+| `Amplitude` | The size of the oscillation. For Single/Compare/Multi it is the **peak-to-mesor distance** of the fitted curve; for Flex it is the fitted amplitude parameter of the winning model (see §6.3). |
 | `Amp. Minimum` | The adaptive amplitude threshold used for this target (see §5). A target passes when `Amplitude ≥ Amp. Minimum`. |
-| `Phase` | The **acrophase in decimal hours** — the time of the fitted peak (e.g. `13.75`). This is the value used in all downstream math. |
-| `Phase (h:min)` | The same acrophase in **clock format**, where digits after the dot are minutes (`13.45` = 13 h 45 min). |
+| `Phase` | The **acrophase in decimal hours** — the time of the fitted peak (e.g. `13.75`). |
+| `Phase (h:min)` | Acrophase in **clock format** (`13.45` = 13 h 45 min). |
 | `Period` | The period in hours. Fixed at 24 for Single/Compare/Multi; fitted by Flex in variable-period mode. |
-| `R2` | Coefficient of determination — how well the fitted curve tracks the data (0–1). |
+| `R2` | Goodness of fit (0–1). |
 | `P-value` | Rhythmicity significance from a nested F-test (fitted cosinor vs a flat line). Raw value. |
-| `P-value (FDR)` | The Benjamini-Hochberg–adjusted rhythmicity p-value (across all fits). Which of `P-value`/`P-value (FDR)` drives the classification is set by `p_value_option`. |
+| `P-value (FDR)` | The Benjamini-Hochberg–adjusted rhythmicity p-value (across all fits). |
 | `Interval` | `In` / `Out` flag of the waveform-prominence test: whether the fitted curve sweeps **beyond** the inter-percentile band of the observed data (`Out` = prominent oscillation). |
-| `Probability` | The rhythmicity tier, from a 0–4 count of criteria met (significance, R², amplitude, prominence): `EXTREMELY HIGH` (4), `HIGH` (3), `MEDIUM` (2), `LOW` (1), `ARRHYTHMIC` (0). This multi-criteria tier — not the p-value alone — is CODAC's rhythmicity call. |
+| `Probability` | The rhythmicity tier, from a 0–4 count of criteria met: `EXTREMELY HIGH` (4), `HIGH` (3), `MEDIUM` (2), `LOW` (1), `ARRHYTHMIC` (0). |
 
-> **How rhythmicity is decided.** Rather than trusting the p-value alone (which
-> over-calls rhythms in large datasets), CODAC scores four independent criteria —
-> significance, effect size (R²), a biologically meaningful amplitude, and
-> waveform prominence — and reports how many were met as the `Probability` tier.
+> **How rhythmicity is decided.** Rather than trusting the p-value alone, CODAC scores four independent criteria: 
+> significance, effect size (R²), a meaningful amplitude, and
+> waveform prominence, and reports how many were met as the `Probability` tier.
 
 ### 6.2 CODAC_Single
 
@@ -232,14 +230,13 @@ Flex fits four models per target and picks the best by AICc, adding:
 
 | Column | Meaning |
 |---|---|
-| `Winning_Model` | Which model best described the target: `Standard` (constant amplitude), `Linear` (with a baseline trend), `Damped` (amplitude decaying exponentially), or `Damped_Fast` (decaying faster than exponential). |
-| `AICc` | The corrected Akaike Information Criterion of the winning model. AICc balances fit against the number of parameters, so a more complex model wins only if it earns it. It is **relative** — meaningful only comparing the four models of the *same* target, not across targets, and not an absolute goodness measure (that is R²/`Probability`). |
-| `Flex_Parameter` | The extra coefficient of the winning model: the slope for `Linear`, the decay rate for the damped models (0 for `Standard`). |
-| `Half_Life` | For the damped models only: the time for the amplitude to fall to half its initial value. Empty for `Standard`/`Linear`. |
+| `Winning_Model` | Which model best described the target: `standard` (constant amplitude), `linear` (with a baseline trend), `damped` (amplitude decaying exponentially), or `damped_fast` (decaying faster than exponential). |
+| `AICc` | The corrected Akaike Information Criterion of the winning model. 
+| `Flex_Parameter` | The extra coefficient of the winning model: the slope for `linear`, the decay rate for the damped models (0 for `standard`). |
+| `Half_Life` | For the damped models only: the time for the amplitude to fall to half its initial value. Empty for `standard`/`linear`. |
 
 Because the linear and damped models change the waveform, Flex reports the fitted
-amplitude parameter **A** directly (rather than a peak-to-mesor distance), so the
-baseline trend or the decay does not inflate the reported amplitude.
+amplitude parameter **A** directly (rather than a peak-to-mesor distance).
 
 ### 6.4 CODAC_Compare (pairwise columns)
 
@@ -252,12 +249,12 @@ For each target, Compare gives the per-group fits (§6.1) plus one row per
 | `Rhythm_Status` | Which groups are rhythmic: `Both rhythmic`, `Group 1 only`, `Group 2 only`, `Neither rhythmic`. |
 | `Biological_Category` | The rhythm-change category (see the table below). |
 | `Mesor_Change` | The **baseline** comparison, reported separately from rhythm: `Different`, `Conserved`, or `Undetermined`. |
-| `Delta_Mesor`, `Delta_Amplitude`, `Delta_Phase` | The change in each component, computed as **Group 1 − Group 2** (matching the `Group 1 vs Group 2` label). A positive value means the first group is higher. |
+| `Delta_Mesor`, `Delta_Amplitude`, `Delta_Phase` | The change in each component, computed as **Group 1 − Group 2** (matching the `Group 1 vs Group 2` label). |
 | `p_diff_mesor`, `p_diff_amplitude`, `p_diff_phase` | The raw p-value for a difference in each component (nested NLS F-test). |
-| `p_diff_mesor_FDR`, `p_diff_amplitude_FDR`, `p_diff_phase_FDR` | The Benjamini-Hochberg–adjusted version of each, applied **per component within each pair**. `p_value_comparison` chooses which set (raw or FDR) drives the decisions; both are always exported so you can compare. |
-| `LossGain_Confidence` | For `Cat 2`/`Cat 3` only (rhythmic in one group): `High confidence` when the amplitude also differs significantly, `Weak evidence` otherwise — a guard against over-calling a rhythm gain/loss. 
+| `p_diff_mesor_FDR`, `p_diff_amplitude_FDR`, `p_diff_phase_FDR` | The Benjamini-Hochberg–adjusted version of each, applied **per component within each pair**. `p_value_comparison` chooses which set (raw or FDR) drives the decisions. |
+| `LossGain_Confidence` | For `Cat 2`/`Cat 3` only (rhythmic in one group): `High confidence` when the amplitude also differs significantly, `Weak evidence` otherwise. 
 
-Phase is compared **only when both groups are rhythmic**; the mesor
+Phase is compared **only when both groups are rhythmic**. The mesor
 is handled separately (`Mesor_Change`), so it does not enter these categories:
 
 | Category | Meaning |
@@ -270,142 +267,172 @@ is handled separately (`Mesor_Change`), so it does not enter these categories:
 | `Cat 6: rhythmic_with_changes_only_phase` | Both rhythmic; phase differs |
 | `Cat 7: rhythmic_with_changes_amp_phase` | Both rhythmic; amplitude and phase differ |
 
-### 6.5 CODAC_Multi (global tests + grouping)
+### 6.5 CODAC_Multi (global tests and grouping)
 
-Multi keeps everything Compare produces and adds a **target-level** view: three global tests and the best
-**grouping** of the groups on two independent axes.
+Multi keeps everything Compare produces and adds a **target-level** view: four
+global tests, and the best **grouping** of the experimental groups on two axes,
+rhythm and mesor. 
 
-> **The pairwise `Biological_Category` is reconciled with the grouping.** In Multi
-> the grouping is authoritative for the
-> "changed vs. unchanged" call: for a pair of both-rhythmic groups, if they sit in
-> the **same** rhythm block the category is `Cat 4` (unchanged); if they sit in
-> **different** blocks it is `Cat 5/6/7` (changed), with the specific component
-> taken from the pairwise amplitude/phase p-values. So `M11` (all groups share the
-> rhythm) is `Cat 4` on every pair, `M05`/`M07`/`M09` are `Cat 4` on their shared
-> pair, and `M06`/`M08`/`M10` are `Cat 5/6/7`. This can override a pairwise test —
-> a target whose grouping says "shared" is `Cat 4` even if its raw pairwise
-> amplitude/phase p-value was significant — so the category reflects the grouping
-> structure, not the isolated pairwise test. The raw `Delta_*` and `p_diff_*`
-> columns are left untouched, so that underlying test stays visible.
+#### Global tests
 
-**The three global tests** (one value per target):
+Each test returns one value per target.
 
 | Column | Question it answers |
 |---|---|
-| `p_global_rhythm` | Does *any* group show a rhythm? (small = at least one group is rhythmic) |
-| `p_pooled_rhythm` | Does a rhythm *common to the groups* exist? (2-df shared-rhythm test, orthogonal to `p_rhythm_diff`; used to screen the correction family — see below) |
-| `p_rhythm_diff` | Do the rhythms *differ between groups*? (small = the rhythm is not the same everywhere) |
-| `p_mesor_diff` | Do the *baselines* differ between groups? (small = at least one group has a different mesor) |
+| `p_global_rhythm` | Does *any* group show a rhythm? Small = at least one group is rhythmic. |
+| `p_pooled_rhythm` | Does a rhythm *common to the groups* exist? A shared-rhythm test on 2 df, used to screen the correction family (see below). |
+| `p_rhythm_diff` | Do the rhythms *differ between groups*? Small = the rhythm is not the same everywhere. |
+| `p_mesor_diff` | Do the *baselines* differ between groups? Small = at least one group has a different mesor. |
 
-Each of these is also reported Benjamini-Hochberg–corrected across all targets, in
-a companion `_FDR` column (`p_global_rhythm_FDR`, `p_pooled_rhythm_FDR`,
-`p_rhythm_diff_FDR`, `p_mesor_diff_FDR`). Because these tests run once per target
-over thousands of targets, the corrected value is the right one for a genome-wide
-screen. The `p_value_global` parameter chooses which drives the grouping **gate** —
-`'FDR'` (default) or `'RAW'` — while both columns are always exported. With the
-default, a target whose rhythm difference is significant raw but not after
-correction is folded back into "shared rhythm" rather than split.
+Each test is also reported Benjamini–Hochberg–corrected across all targets, in a
+companion `_FDR` column. Both columns are always exported. The `p_value_global`
+parameter only decides which of the two drives the grouping gate, `'FDR'`
+(default) or `'RAW'`.
 
-**Recovering power with a screened correction (`rhythm_diff_correction`).**
-Correcting `p_rhythm_diff` genome-wide is over-conservative: that test is only ever
-*read* for targets with two or more rhythmic groups, yet the correction counts
-every target in the family, so in a dataset that is mostly arrhythmic the gate
-closes for almost everything. The `'screened_pooled'` mode fixes this with a
-two-stage design. The **pooled shared-rhythm** parent test (`p_pooled_rhythm`, 2 df
-— does a rhythm common to the groups exist?) is *orthogonal* to the group-by-rhythm
-interaction that `p_rhythm_diff` tests (4 df), so screening on it does not bias the
-child test. Targets passing the (BH-corrected) pooled screen form the family within
-which `p_rhythm_diff` is then BH-corrected (`p_rhythm_diff_FDR_screened`), which is
-always ≤ the genome-wide value — recovering power. The genome-wide
-`p_rhythm_diff_FDR` is still reported, because the pooled screen has one blind spot
-(groups in near-perfect antiphase cancel in the pooled rhythm); that column is the
-track for catching those. Companion columns: `rhythm_screen_pass`,
-`rhythm_diff_family_size`, `p_rhythm_diff_FDR_screened`, and `rhythm_diff_gate_used`.
-The default (`'all_targets'`) keeps the genome-wide gate. The `permute_B` diagnostic
-permutes group labels within each timepoint (a null in which the groups share the
-rhythm) to estimate the gate's **empirical FDR** in CODAC's own engine, written to
-`rhythm_diff_calibration.csv`.
+#### Recovering power with a screened correction (`rhythm_diff_correction`)
 
-**The grouping** — the single best configuration of which groups share the same
-rhythm, and, separately, which share the same baseline:
+Correcting `p_rhythm_diff` for all targets may be over-conservative, especially if
+the majority of the targets are arrhythmic. The `'screened_pooled'` mode addresses
+this with a two-stage design. Targets first have to pass a BH-corrected screen on
+the pooled shared-rhythm test (`p_pooled_rhythm`, 2 df). Those that pass form the
+family within which `p_rhythm_diff` is then BH-corrected, reported as
+`p_rhythm_diff_FDR_screened`. Screening in this manner does not bias the child test,
+since the pooled test is orthogonal to the group-by-rhythm interaction measured by
+`p_rhythm_diff`. The genome-wide `p_rhythm_diff_FDR` is
+still reported, and is the value that drives the gate when
+`rhythm_diff_correction = 'all_targets'` (the default). Companion columns are
+`rhythm_screen_pass`, `rhythm_diff_family_size`, `p_rhythm_diff_FDR_screened`, and
+`rhythm_diff_gate_used`.
+
+The `permute_B` diagnostic permutes group labels within each timepoint — a null in
+which the groups share the rhythm — to estimate the empirical FDR of the gate in
+CODAC's own engine, written to `rhythm_diff_calibration.csv`.
+
+#### The grouping
+
+The grouping is the single best configuration of which groups share the same rhythm
+and, separately, which share the same mesor.
+
+Which groups count as rhythmic is decided first, by CODA's own per-group
+multi-criteria tier. A group enters a rhythmic block only if its `Probability`
+reaches `rhythmicity_cutoff`, the same bar `codac_compare()` uses, so a `LOW` group
+is treated as arrhythmic. Model selection then decides only *how* the rhythmic groups share the rhythm.
+
+> Importantly, `p_global_rhythm` can be significant while `Grouping` still reads
+> `All groups arrhythmic`. That is expected, as the p-value asks only whether *some* oscillation is statistically detectable, whereas
+> the grouping requires a rhythm strong enough to pass CODA's multi-criteria bar.
 
 | Column | Meaning |
 |---|---|
-| `Grouping` | The winning **rhythm** grouping. Which groups are **rhythmic** is decided first, by CODA's own per-group multi-criteria tier: a group counts as rhythmic only if its `Probability` reaches `rhythmicity_cutoff` (so a `LOW` group is treated as arrhythmic, the same bar `codac_compare()` uses). Then, among the rhythmic groups, model selection decides **how they share** the rhythm: `{G1,G2} != {G3}` (G1, G2 share it, G3 differs), `{G1,G2,G3} (all equal)` / `All groups rhythmic (shared rhythm)`, `{G1} ; arrhythmic: G2,G3` (only G1 rhythmic), or `All groups arrhythmic` (none reach the cutoff). If two or more groups are rhythmic but the omnibus `p_rhythm_diff` could not be computed, it reads `Undetermined (insufficient data)`. |
-| `Grouping_Model` | A short, stable code for the winning rhythm model (`M01`–`M15` for three groups), for easy filtering in R. See the legend below; empty when the grouping is `Undetermined`. |
-| `Grouping_Confidence` | The strength of evidence for that grouping, in `[0, 1]` (the criterion weights of all candidate models sum to 1). Near 1 = decisive; low = the top models were close (an uncertain call). `NA` when no grouping was searched. |
+| `Grouping` | The winning rhythm grouping, written as blocks of groups that share a rhythm, separated by `!=`, with any arrhythmic groups listed after a semicolon: `{G1,G2} != {G3}`, `{G1,G2} != {G3,G4} ; arrhythmic: G5`, `{G1} ; arrhythmic: G2,G3`. The two extremes have their own labels, `All groups rhythmic (shared rhythm)` and `All groups arrhythmic`. Reads `Undetermined (insufficient data)` when two or more groups are rhythmic but the omnibus `p_rhythm_diff` could not be computed. |
+| `Grouping_Model` | A code for the winning rhythm model. See the legend below. Empty when the grouping is `Undetermined`. |
+| `Grouping_Confidence` | Strength of evidence for that grouping, in `[0, 1]`, since the criterion weights of all candidate models sum to 1. Near 1 = decisive; low = the top models were close. `NA` when no grouping was searched. |
 | `Grouping_IC_Gap` | The information-criterion margin to the runner-up model. A small gap is another sign of a close call. |
-| `Grouping_Mesor`, `Grouping_Mesor_Confidence`, `Grouping_Mesor_IC_Gap` | Exactly the same three, but for the **baseline (mesor)** axis, gated by `p_mesor_diff`. Its "no difference" label is `All groups equal (same baseline)`, and `Undetermined (insufficient data)` when the mesor omnibus could not be computed. |
-| `Grouping_Mesor_Model` | The stable code for the winning mesor model (`MM1`–`MM5` for three groups); see the legend below. |
+| `Grouping_Mesor`, `Grouping_Mesor_Confidence`, `Grouping_Mesor_IC_Gap` | The same three columns for the **baseline (mesor)** axis, gated by `p_mesor_diff`. Its no-difference label is `All groups equal (same baseline)`, and `Undetermined (insufficient data)` when the mesor omnibus could not be computed. |
+| `Grouping_Mesor_Model` | A code for the winning mesor model; see the legend below. |
 
-The grouping is chosen by **model selection**: CODAC fits every possible
-configuration of rhythm-sharing across the groups and keeps the one with the best
-information criterion, set by `selection_criterion`:
+#### How the grouping is chosen (`selection_criterion`)
 
-- **`BIC`** (default) — penalizes complexity more strongly, so it avoids splitting
-  groups that are actually the same. More conservative; recommended.
-- **`AICc`** — more sensitive to subtle differences, at a higher false-positive
-  risk.
+CODAC fits every possible configuration of rhythm-sharing across the groups and
+keeps the one with the best information criterion.
 
-Because the criterion is a *relative* comparison of models, `Grouping_Confidence`
-(not a p-value) is its measure of certainty; the `p_*_diff` gates above are the
-companion hypothesis tests. The two axes are independent, so a target can have an
-identical rhythm across groups while its baseline splits (or vice versa).
+- **`BIC`** (default) penalizes complexity more strongly, so it avoids splitting
+  groups that are actually the same. Use it for genome-wide screens, and whenever
+  avoiding false "groups differ" calls matters more than catching every subtle one.
+- **`AICc`** is more sensitive to small amplitude and phase differences, at a higher
+  false-positive rate. Use it for targeted analyses of a handful of candidate
+  targets.
 
-> **Reading a Multi row, in three steps:** `p_rhythm_diff` tells you *whether*
-> there is a rhythm difference; `Grouping` tells you *what* the structure is; and
-> `Grouping_Confidence` tells you *how much to trust* that structure. A significant
-> `p_rhythm_diff` with a low confidence means "there is a difference, but the exact
-> grouping is uncertain" — worth checking the pairwise rows for that target.
+Where the two criteria would disagree on a target, its `Grouping_Confidence` and
+`Grouping_IC_Gap` tend to be low anyway, which is a built-in signal that the call is
+borderline. Because the criterion compares models relative to each other,
+`Grouping_Confidence` rather than a p-value is its measure of certainty; the
+`p_*_diff` gates above are the companion hypothesis tests.
 
-#### When is `Grouping_Confidence` a number — and where to look otherwise
+The model space grows quickly with the number of groups, so the search is best kept
+to the groups a question actually needs. With `k` groups the rhythm axis has
+`Bell(k+1)` models and the mesor axis `Bell(k)`:
 
-`Grouping_Confidence` is the weight of the model-selection *search*, so it carries
-a value only when that search actually runs: when **two or more groups are
-rhythmic AND their rhythms differ** (`p_rhythm_diff` past the gate). Otherwise it
-is `NA`. By model:
+| Groups | Rhythm models | Mesor models |
+|---|---|---|
+| 2 | 5 | 2 |
+| 3 | 15 | 5 |
+| 4 | 52 | 15 |
+| 5 | 203 | 52 |
+| 6 | 877 | 203 |
 
-- **Always `NA`** — `M01` (no group rhythmic) and `M02`/`M03`/`M04` (exactly one
-  group rhythmic): with 0 or 1 rhythmic groups there is no "shared vs. split"
-  question to weigh, so there is nothing to score.
-- **Always a number** — the *split* models `M06`, `M08`, `M10`, `M12`–`M15`: these
-  only arise because the search chose a split.
-- **Either** — the *shared* models `M05`, `M07`, `M09`, `M11`: a number when the
-  search ran and chose "shared"; `NA` when the gate was closed (`p_rhythm_diff`
-  not significant) and sharing was assumed without a search.
+> **Reading a Multi row.** Read the row in three steps. `p_rhythm_diff` tells you
+> *whether* there is a rhythm difference, `Grouping` tells you *what* the structure
+> is, and `Grouping_Confidence` tells you *how much to trust* that structure. A
+> significant `p_rhythm_diff` with a low confidence means there is a difference but
+> the exact grouping is uncertain, which is worth checking against the pairwise rows
+> for that target.
 
-**An `NA` confidence does not mean missing information** — it only means the
-grouping *structure* was decided without a model-selection contest. The
-per-component detail (amplitude, phase, baseline differences) always lives in the
-pairwise columns, whatever the grouping says. For any target, read:
+#### `Biological_Category` follows the grouping
 
-- `Biological_Category`, `p_diff_amplitude` / `p_diff_amplitude_FDR`, `p_diff_phase`
-  / `p_diff_phase_FDR`, `Delta_Amplitude`, `Delta_Phase` — whether and by how much
-  amplitude and phase differ between each pair of groups.
-- `LossGain_Confidence` — for the one-rhythmic-group cases (`M02`–`M04`), the
-  confidence that a rhythm was gained or lost.
+In Compare the category is decided pair by pair. In Multi the grouping decides it,
+so that a target is never called *shared* by its grouping and *changed* by one of
+its pairs. For any pair in which both groups are rhythmic:
 
-So: use `Grouping`/`Grouping_Model` for the big-picture structure, and the
-pairwise columns for the per-component numbers — including when the grouping
-confidence is `NA`.
+- both in the **same** rhythm block → **Cat 4** (unchanged)
+- in **different** rhythm blocks → **Cat 5/6/7** (changed), with the component taken
+  from the pairwise amplitude and phase p-values
 
-#### Choosing `BIC` vs `AICc`
+Every pair of a model is categorized on this rule, so one target can carry both. In
+a model such as `{G1,G2} != {G3}`, the pair G1–G2 is Cat 4 while G1–G3 and G2–G3 are
+Cat 5/6/7. A model in which every rhythmic group sits in one block is Cat 4 on all of
+its pairs, and a model that puts each rhythmic group in its own block is Cat 5/6/7 on
+all of them. Pairs involving an arrhythmic group keep their loss/gain category and
+are untouched by the grouping.
 
-Use **`BIC`** (the default) for genome-wide screens and whenever avoiding false
-"groups differ" calls matters more than catching every subtle one — it penalizes
-complexity more strongly and is the conservative. Use
-**`AICc`** for targeted analyses (a handful of candidate targets) or when maximum
-sensitivity to small amplitude/phase differences is the priority and a higher
-false-positive rate is acceptable. When the two criteria would disagree on a
-target, its `Grouping_Confidence` and `Grouping_IC_Gap` tend to be low anyway — a
-built-in signal that the call is genuinely borderline.
+The grouping can therefore override an isolated pairwise test: a pair sitting in the
+same block is Cat 4 even when its raw amplitude or phase p-value was significant.
+Nothing is discarded — `Delta_Amplitude`, `Delta_Phase`, `p_diff_amplitude`, and
+`p_diff_phase` are written unchanged, so the pairwise result stays visible next to
+the reconciled category.
 
-#### Model legend (three groups)
+#### When `Grouping_Confidence` is a number
 
-The `Grouping_Model` / `Grouping_Mesor_Model` codes are stable for a **fixed
-number of groups**. For three groups the rhythm axis has 15 models and the mesor
-axis 5 (`G1`, `G2`, `G3` in the order given in `groups`; `!=` separates
-different-rhythm blocks; `arr` = arrhythmic in that model):
+`Grouping_Confidence` is the weight of the model-selection search, which requires two or more rhythmic
+groups whose rhythms differ (`p_rhythm_diff` past the gate). By model:
+
+- **Always `NA`** — the model with none or one rhythmic group.
+- With none or one rhythmic group there is no shared-versus-split
+  question to weigh, so there is nothing to score. 
+- **Always a number** — every model that places two or more rhythmic groups in
+  different blocks. 
+- **Either** — every model in which all the rhythmic groups sit in a single shared
+  block. A number when the search ran and chose shared; `NA` when the gate was closed
+  and sharing was assumed without a search.
+
+An `NA` confidence does not mean missing information. It means the structure was
+decided without a model-selection contest. The per-component numbers always live in
+the pairwise columns, whatever the grouping says: `Biological_Category`,
+`p_diff_amplitude` / `p_diff_amplitude_FDR`, `p_diff_phase` / `p_diff_phase_FDR`,
+`Delta_Amplitude`, and `Delta_Phase` for whether and by how much amplitude and phase
+differ between each pair; and `LossGain_Confidence`, for the models with exactly one
+rhythmic group, for the confidence that a rhythm was gained or lost.
+
+Use `Grouping` and `Grouping_Model` for the structure, and the pairwise columns for
+the per-component numbers, including when the grouping confidence is `NA`.
+
+#### Model legend
+
+A rhythm model is one assignment of the groups to rhythmic blocks, plus the set left
+arrhythmic. A mesor model is one partition of all the groups into baseline blocks,
+with no arrhythmic option, since every group has a baseline. The codes are `M01`,
+`M02`, … on the rhythm axis and `MM1`, `MM2`, … on the mesor axis, numbered in a
+fixed order:
+
+1. by the number of rhythmic groups, from none to all (rhythm axis only);
+2. then by the groups in that rhythmic set, in the order given in `groups`;
+3. then from the coarsest partition of that set (one shared block) to the finest
+   (every group on its own).
+
+The codes are stable for a fixed number of groups, so they can be compared across
+targets and across runs of the same design. They are **not** stable across designs:
+`M07` in a three-group run and `M07` in a four-group run are different models, so any
+filter written on codes has to be rewritten when the number of groups changes.
 
 | Rhythm | Meaning | | Rhythm | Meaning |
 |---|---|---|---|---|
@@ -426,23 +453,20 @@ different-rhythm blocks; `arr` = arrhythmic in that model):
 | `MM4` | {G1,G3} != {G2} |
 | `MM5` | {G1} != {G2} != {G3} |
 
-Filter in R by code, e.g. keep the "one group loses the rhythm" cases:
-`analysis_results %>% filter(Grouping_Model %in% c("M05","M07","M09"))`.
+Because the codes shift with the number of groups, filter on the grouping
+*structure* rather than on codes wherever the design might change. To keep the "one
+group loses the rhythm" cases — that is, every model in which the rhythmic groups
+share one block and at least one group is arrhythmic:
 
-> **How the grouping relates to the per-group tiers and the global tests.** The
-> `Grouping` deliberately follows CODA's per-group `Probability` tier for the
-> "who is rhythmic" question: a group is placed in a rhythmic block only if it
-> reaches `rhythmicity_cutoff`, so a weakly-oscillating `LOW` group is treated as
-> arrhythmic even if a bare significance test would flag it. This means
-> `p_global_rhythm` (a pure "is there any rhythm?" p-value) can be significant
-> while the `Grouping` still reads `All groups arrhythmic` — that is expected, not
-> a contradiction: `p_global_rhythm` only asks whether *some* oscillation is
-> statistically detectable, whereas the grouping requires a rhythm strong enough
-> to pass CODA's multi-criteria bar. The model-selection step (and `p_rhythm_diff`)
-> then only decides how the groups that *are* rhythmic share their rhythm.
+```r
+# structural filter, works for any number of groups
+analysis_results %>%
+  filter(grepl("arrhythmic", Grouping), !grepl("!=", Grouping))
 
----
-
+# equivalent code filter, three groups only
+analysis_results %>%
+  filter(Grouping_Model %in% c("M05", "M07", "M09"))
+```
 ## 7. Plots
 
 In the `CODA_Results/plots/` folder:
