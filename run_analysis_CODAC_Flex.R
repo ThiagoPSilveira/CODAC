@@ -5,8 +5,8 @@
 # time you run the analysis, R sets up everything automatically (this needs an
 # internet connection and may take a minute).
 #
-# CODAC_Flex fits competing models per target (Standard, Linear, Dampened,
-# Dampened_Fast) and selects the best one via AICc. The results table includes
+# CODAC_Flex fits competing models per target (Standard, Linear, Damped,
+# Damped_Fast) and selects the best one via AICc. The results table includes
 # Winning_Model, AICc, Flex_Parameter and Half_Life.
 #
 # Results (the Excel table and the plots) are saved automatically in a folder
