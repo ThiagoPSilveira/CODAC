@@ -32,10 +32,6 @@ remotes::install_github("ThiagoPSilveira/CODAC", subdir = "CODAC")
 #     force the update, then restart R:
 # remotes::install_github("ThiagoPSilveira/CODAC", subdir = "CODAC", force = TRUE)
 
-# If the repository is PRIVATE, the install may fail with a 404 error. In that
-# case, create a GitHub token once, then re-run the install line:
-#   usethis::create_github_token()
-#   gitcreds::gitcreds_set()
 #
 # After installing (or updating) the package, RESTART R (Session > Restart R)
 # before running the analysis.
