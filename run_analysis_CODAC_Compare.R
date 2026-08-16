@@ -47,7 +47,7 @@ remotes::install_github("ThiagoPSilveira/CODAC", subdir = "CODAC")
 # Tab-delimited file: target names in column 1, then the value columns ordered
 # BY GROUP: for each group, all timepoints, each with its replicates. So the
 # number of value columns must equal length(groups) * length(timepoints) * n_observations.
-data_path <- "C:/Users/55929/Documents/GitHub/CODAC/Tests/compare_gene_data.txt"   # <-- EDIT THIS
+data_path <- "C:/path/to/your/compare_gene_data.txt"   # <-- EDIT THIS
 
 # Work in the folder that contains your data file. The engine automatically
 # creates a "CODA_Results" folder here (same behavior as the PyCharm run),
@@ -190,7 +190,7 @@ cat("Comparison pairs found:", paste(all_pairs, collapse = " | "), "\n")
 # ------------------------------------------------------------------------------
 # Builds a nested list: category_selection[[pair]][[category]] is the full
 # Target blocks for that pair+category. Also split by Mesor_Change
-# (Conserved / Different) as Léo did, under $..._mesor_conserved / $..._mesor_diff.
+# (Conserved / Different), under $..._mesor_conserved / $..._mesor_diff.
 # Nothing is written to disk -- these are just objects to inspect / View().
 
 category_selection <- list()

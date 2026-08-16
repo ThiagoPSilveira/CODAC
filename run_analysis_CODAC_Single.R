@@ -39,7 +39,7 @@ remotes::install_github("ThiagoPSilveira/CODAC", subdir = "CODAC")
 # 1. POINT TO YOUR DATA FILE
 # ------------------------------------------------------------------------------
 # Tab-delimited file: genes in rows, samples in columns, gene name in column 1.
-data_path <- "C:/Users/55929/Documents/GitHub/CODAC/Tests/single_gene_data.txt"   # <-- EDIT THIS
+data_path <- "C:/path/to/your/single_gene_data.txt"   # <-- EDIT THIS
 
 # Work in the folder that contains your data file. The engine automatically
 # creates a "CODA_Results" folder here (same behavior as the PyCharm run),
