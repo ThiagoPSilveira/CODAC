@@ -16,6 +16,9 @@ codac_multi(
   p_value_option = "FDR",
   p_value_comparison = "RAW",
   selection_criterion = "BIC",
+  p_value_global = "FDR",
+  rhythm_diff_correction = "all_targets",
+  permute_B = 0,
   min_rhythmicity = "HIGH",
   rhythmicity_cutoff = "HIGH",
   amp_stringency = 0.5,
@@ -49,20 +52,38 @@ If NULL, all pairwise combinations are compared.}
 \item{p_threshold}{Significance level for p-value (default: 0.05).}
 
 \item{p_value_option}{Multiple-testing strategy for the PER-GROUP rhythmicity
-test: 'FDR' or 'RAW' (default: 'FDR').}
+test: 'FDR' or 'RAW' (default: 'FDR'). It can also be given as a
+`c(method, alpha)` pair (e.g. `c('FDR', 0.1)`) to use its own threshold
+instead of the shared `p_threshold`.}
 
 \item{p_value_comparison}{Which p-values drive the PAIRWISE COMPARISON decisions
 (Mesor_Change, the Cat 2/3 loss/gain confidence, and the Cat 4-7
 amplitude/phase split): 'RAW' (raw pairwise p-values) or 'FDR'
 (Benjamini-Hochberg adjusted). This is INDEPENDENT of `p_value_option`.
 Both raw and FDR columns are always exported; only the decisions switch
-(default: 'RAW', which reproduces the previously validated behavior).}
+(default: 'RAW'). It can also be given as a `c(method, alpha)` pair
+(e.g. `c('FDR', 0.1)`) to use its own threshold.}
 
 \item{selection_criterion}{Information criterion for the multi-group GROUPING
 selection (>= 2 groups): 'BIC' (default, more conservative about calling a
-difference, aligned with dryR) or 'AICc' (more permissive/sensitive, higher
+difference) or 'AICc' (more permissive/sensitive, higher
 false-positive risk). Drives the `Grouping`/`Grouping_Mesor` columns and the
 0-1 confidence weights.}
+
+\item{p_value_global}{Which p-value drives the GLOBAL gates (`p_rhythm_diff`,
+`p_mesor_diff`): 'FDR' (default, Benjamini-Hochberg across all targets --
+recommended for genome-wide screens) or 'RAW'. It can also be given as a
+`c(method, alpha)` pair (e.g. `c('FDR', 0.1)`). Both raw and `_FDR`
+columns are always exported; only the gate decision switches.}
+
+\item{rhythm_diff_correction}{How the p_rhythm_diff gate is FDR-corrected:
+'all_targets' (default, genome-wide BH) or 'screened_pooled' (two-stage: BH
+only among targets passing the orthogonal pooled shared-rhythm screen,
+recovering power). The genome-wide column is reported in both modes.}
+
+\item{permute_B}{Diagnostic: number of label permutations to estimate the
+rhythm-difference gate's empirical FDR inside CODAC's engine (0 = off,
+default). Writes rhythm_diff_calibration.csv. Can be slow.}
 
 \item{min_rhythmicity}{Minimum rhythmicity tier (default: 'ARRHYTHMIC').}
 
@@ -90,10 +111,11 @@ A dataframe with the per-target fits and pairwise comparison results.
   without any `as.numeric()` conversion.
 }
 \description{
-Wrapper for the CODAC_Multi Python engine. Unlike Single/Flex (which analyze
-one target series at a time), CODAC_Multi works with MULTIPLE GROUPS: it fits
-rhythmicity per group and performs pairwise differential-rhythm comparisons
-between groups (e.g. WT vs KO).
+Wrapper for the CODAC_Multi Python engine. CODAC_Multi works with MULTIPLE
+GROUPS: it fits rhythmicity per group, runs the pairwise differential-rhythm
+comparisons of CODAC_Compare, and additionally selects, by information
+criterion, the best grouping of the groups on two independent axes -- which
+groups share a rhythm, and which share a baseline (mesor).
 }
 \details{
 The data columns must be ordered by group: for each group, all timepoints,

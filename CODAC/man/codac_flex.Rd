@@ -70,6 +70,6 @@ A dataframe with the rhythmicity results (incl. Winning_Model, AICc and Flex_Par
 \description{
 Wrapper for the CODAC_Flex Python engine. Unlike CODAC_Single (a single Cosinor
 model), CODAC_Flex fits four competing models per gene -- Standard, Linear-trend,
-Dampened and Dampened_Fast cosine -- and selects the best one via the corrected
+Damped and Damped_Fast cosine -- and selects the best one via the corrected
 Akaike Information Criterion (AICc).
 }

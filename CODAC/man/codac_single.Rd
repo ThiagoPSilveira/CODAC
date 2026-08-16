@@ -66,6 +66,6 @@ codac_single(
 A dataframe containing the rhythmicity results.
 }
 \description{
-This function acts as a wrapper for the CODA Python engine, performing
+This function acts as a wrapper for the CODAC Python engine, performing
 non-linear Cosinor optimization and multi-criteria rhythmicity scoring.
 }

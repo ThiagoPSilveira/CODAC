@@ -48,14 +48,17 @@ If NULL, all pairwise combinations are compared.}
 \item{p_threshold}{Significance level for p-value (default: 0.05).}
 
 \item{p_value_option}{Multiple-testing strategy for the PER-GROUP rhythmicity
-test: 'FDR' or 'RAW' (default: 'FDR').}
+test: 'FDR' or 'RAW' (default: 'FDR'). It can also be given as a
+`c(method, alpha)` pair (e.g. `c('FDR', 0.1)`) to use its own threshold
+instead of the shared `p_threshold`.}
 
 \item{p_value_comparison}{Which p-values drive the PAIRWISE COMPARISON decisions
 (Mesor_Change, the Cat 2/3 loss/gain confidence, and the Cat 4-7
 amplitude/phase split): 'RAW' (raw pairwise p-values) or 'FDR'
 (Benjamini-Hochberg adjusted). This is INDEPENDENT of `p_value_option`.
 Both raw and FDR columns are always exported; only the decisions switch
-(default: 'RAW', which reproduces the previously validated behavior).}
+(default: 'RAW'). It can also be given as a `c(method, alpha)` pair
+(e.g. `c('FDR', 0.1)`) to use its own threshold.}
 
 \item{min_rhythmicity}{Minimum rhythmicity tier (default: 'ARRHYTHMIC').}
 
