@@ -520,7 +520,7 @@ def get_global_tests(model0, model1, model2, group_col='Group'):
     # 2. Pooled shared-rhythm parent (2 df): model0 vs model1. Tests whether a
     #    COMMON rhythm exists, orthogonal to the group-by-rhythm interaction that
     #    p_rhythm_diff tests -- so it can screen the correction family for
-    #    p_rhythm_diff without contaminating that test (Proposal III).
+    #    p_rhythm_diff without contaminating that test.
     try:
         anova_p = anova_lm(model0, model1)
         out['p_pooled_rhythm'] = float(anova_p['Pr(>F)'].iloc[1])
@@ -541,8 +541,7 @@ def get_global_tests(model0, model1, model2, group_col='Group'):
 # -------------------------------------------------------------------
 # Instead of only reading pairwise contrasts (which do not compose when
 # they are non-transitive: G1~G2, G2~G3, but G1!=G3), CODAC_Multi finds the
-# single best GROUPING of the groups by model selection -- the same spirit
-# as dryR, but on the CODA cosinor/GLM engine.
+# single best GROUPING of the groups by model selection , on the CODA cosinor/GLM engine.
 #
 # The RHYTHM axis enumerates, for each subset of rhythmic groups, every way
 # the rhythmic groups can be partitioned into "same-rhythm" blocks. For N
@@ -606,7 +605,7 @@ def _ic_from_design(X, y, criterion='BIC'):
         aic = base + 2 * k
         return aic + (2 * k * (k + 1)) / (n - k - 1) if (n - k - 1) > 0 else aic
     # Default: BIC (Schwarz) -- stronger complexity penalty, more conservative
-    # about calling a difference (aligned with dryR and with avoiding the
+    # about calling a difference (avoiding the
     # over-splitting that AICc is prone to when rhythms are truly shared).
     return base + k * np.log(n)
 
@@ -906,7 +905,7 @@ def run_permutation_calibration(df_long, groups, alpha, mode, permute_B, seed=12
     # SHARE the rhythm -- no group-by-rhythm interaction), refits the global tests
     # genome-wide, and counts how many targets the rhythm-difference gate FALSELY
     # calls significant. Compares observed vs the permutation null -> an empirical
-    # FDR for the gate, measured inside CODAC's own engine (Proposal III check).
+    # FDR for the gate, measured inside CODAC's own engine.
     if permute_B is None or int(permute_B) <= 0:
         return None
     permute_B = int(permute_B)
@@ -2185,7 +2184,7 @@ def main():
 
     # Information criterion for the multi-group GROUPING selection (CODAC_Multi).
     #   'BIC'  (default) -- stronger complexity penalty, more conservative about
-    #                       calling a difference (aligned with dryR and with the
+    #                       calling a difference (favouring the
     #                       anti-over-calling philosophy). Recommended.
     #   'AICc'           -- more permissive; better sensitivity to subtle
     #                       differences, at a higher false-positive risk.
@@ -2205,7 +2204,7 @@ def main():
     print(f"[INFO] p-value settings: rhythmicity={p_value_option}@{alpha_rhythm}, "
           f"comparison={p_value_comparison}@{alpha_comparison}, global gates={p_value_global}@{alpha_global}.")
 
-    # How the p_rhythm_diff gate is multiple-testing corrected (Proposal III):
+    # How the p_rhythm_diff gate is multiple-testing corrected:
     #   'all_targets'     (default) -- Benjamini-Hochberg over every target
     #                                  (genome-wide); conservative, can lose power
     #                                  because most targets never read the test.
@@ -2766,7 +2765,7 @@ def main():
             if not df_global.empty:
                 df_global = add_global_fdr(df_global, ['p_global_rhythm', 'p_pooled_rhythm', 'p_rhythm_diff', 'p_mesor_diff'])
 
-                # Two-stage screened correction for p_rhythm_diff (Proposal III):
+                # Two-stage screened correction for p_rhythm_diff:
                 # screen targets on the orthogonal pooled shared-rhythm test, then
                 # BH p_rhythm_diff only within the screened family. The genome-wide
                 # p_rhythm_diff_FDR column is always kept too (antiphase blind-spot
@@ -3136,7 +3135,7 @@ def main():
     _dfg = df_global if 'df_global' in locals() else pd.DataFrame()
     model_heatmap_paths = generate_heatmap_by_model(_dfg, results, df_long, n_observations, groups, results_dir, time_label=time_label)
     consolidated_path = generate_heatmap_consolidated(_dfg, results, df_long, n_observations, groups, results_dir, time_label=time_label)
-    # Bundle everything (consolidated first, then per-model) into one PDF (dryR-style).
+    # Bundle everything (consolidated first, then per-model) into one PDF.
     bundle_heatmaps_pdf(([consolidated_path] if consolidated_path else []) + (model_heatmap_paths or []), results_dir)
 
     # Optional: permutation calibration of the rhythm-difference gate (diagnostic).
