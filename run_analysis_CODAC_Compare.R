@@ -1,5 +1,5 @@
 # ==============================================================================
-# CODA COMPARE - ANALYSIS SCRIPT
+# CODAC COMPARE - ANALYSIS SCRIPT
 # ==============================================================================
 # You do NOT need to install Python or any Python libraries by hand. The first
 # time you run the analysis, R sets up everything automatically (this needs an
@@ -32,11 +32,6 @@ remotes::install_github("ThiagoPSilveira/CODAC", subdir = "CODAC")
 #     force the update, then restart R:
 # remotes::install_github("ThiagoPSilveira/CODAC", subdir = "CODAC", force = TRUE)
 
-# If the repository is PRIVATE, the install may fail with a 404 error. In that
-# case, create a GitHub token once, then re-run the install line:
-#   usethis::create_github_token()
-#   gitcreds::gitcreds_set()
-#
 # After installing (or updating) the package, RESTART R (Session > Restart R)
 # before running the analysis.
 
@@ -183,7 +178,6 @@ all_pairs <- results_clean %>%
   unique()
 
 cat("Comparison pairs found:", paste(all_pairs, collapse = " | "), "\n")
-
 
 # ------------------------------------------------------------------------------
 # 5a. CATEGORY SELECTION  (objects in the session, per pair x category)
