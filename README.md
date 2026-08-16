@@ -525,16 +525,18 @@ Use the exact category names from §6.4. When there are several pairs, filter by
 
 If you use CODAC in your work, please cite:
 
-> AUTHORS. *TITLE*. JOURNAL, 2026. DOI
+> da Silveira, T. P., Lincoln, K., Nguyen, T., & de Assis, L. V. M. *Circadian
+> Oscillation Detection Analysis and Comparison (CODAC): a Multicriteria Method to
+> Estimate and Compare Rhythmicity*. JOURNAL_TBD, 2026. DOI_TBD
 
 BibTeX:
 ```bibtex
 @article{codac2026,
-  title   = {TITLE},
-  author  = {AUTHORS},
-  journal = {JOURNAL},
+  title   = {Circadian Oscillation Detection Analysis and Comparison (CODAC): a Multicriteria Method to Estimate and Compare Rhythmicity},
+  author  = {da Silveira, Thiago Parente and Lincoln, Karla and Nguyen, Thomas and de Assis, Leonardo Vinicius Monteiro},
+  journal = {JOURNAL_TBD},
   year    = {2026},
-  doi     = {DOI}
+  doi     = {DOI_TBD}
 }
 ```
 
