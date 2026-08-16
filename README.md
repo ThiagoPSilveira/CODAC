@@ -544,11 +544,9 @@ A software DOI (e.g. minted through Zenodo) will be added here once available.
 
 ## 11. License
 
-CODAC is released under the LICENSE_NAME license; see the `LICENSE` file in the
-repository root.
-
-<!-- TODO: choose a license (e.g. MIT, GPL-3.0, Apache-2.0), add a LICENSE file
-     to the repo root, and replace LICENSE_NAME above. -->
+CODAC is released under the **MIT License** &copy; 2026 Thiago P. da Silveira and
+Leonardo V. M. de Assis; see the [`LICENSE`](LICENSE) file in the repository root
+for the full terms.
 
 ---
 
