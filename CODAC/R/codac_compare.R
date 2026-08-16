@@ -22,13 +22,16 @@
 #' @param r2_threshold Minimum R-squared threshold (default: 0.4).
 #' @param p_threshold Significance level for p-value (default: 0.05).
 #' @param p_value_option Multiple-testing strategy for the PER-GROUP rhythmicity
-#'   test: 'FDR' or 'RAW' (default: 'FDR').
+#'   test: 'FDR' or 'RAW' (default: 'FDR'). It can also be given as a
+#'   `c(method, alpha)` pair (e.g. `c('FDR', 0.1)`) to use its own threshold
+#'   instead of the shared `p_threshold`.
 #' @param p_value_comparison Which p-values drive the PAIRWISE COMPARISON decisions
 #'   (Mesor_Change, the Cat 2/3 loss/gain confidence, and the Cat 4-7
 #'   amplitude/phase split): 'RAW' (raw pairwise p-values) or 'FDR'
 #'   (Benjamini-Hochberg adjusted). This is INDEPENDENT of `p_value_option`.
 #'   Both raw and FDR columns are always exported; only the decisions switch
-#'   (default: 'RAW', which reproduces the previously validated behavior).
+#'   (default: 'RAW'). It can also be given as a `c(method, alpha)` pair
+#'   (e.g. `c('FDR', 0.1)`) to use its own threshold.
 #' @param min_rhythmicity Minimum rhythmicity tier (default: 'ARRHYTHMIC').
 #' @param rhythmicity_cutoff Rhythmicity level at which a group counts as rhythmic
 #'   in the classification: 'ARRHYTHMIC','LOW','MEDIUM','HIGH','EXTREMELY HIGH' (default: 'HIGH').

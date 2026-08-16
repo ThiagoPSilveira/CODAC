@@ -2,7 +2,7 @@
 #'
 #' Wrapper for the CODAC_Flex Python engine. Unlike CODAC_Single (a single Cosinor
 #' model), CODAC_Flex fits four competing models per gene -- Standard, Linear-trend,
-#' Dampened and Dampened_Fast cosine -- and selects the best one via the corrected
+#' Damped and Damped_Fast cosine -- and selects the best one via the corrected
 #' Akaike Information Criterion (AICc).
 #'
 #' @param data A dataframe with the expression data (first column = gene names).

@@ -1,6 +1,6 @@
 #' Execute the CODAC_Single Analysis Pipeline
 #'
-#' This function acts as a wrapper for the CODA Python engine, performing
+#' This function acts as a wrapper for the CODAC Python engine, performing
 #' non-linear Cosinor optimization and multi-criteria rhythmicity scoring.
 #'
 #' @param data A dataframe containing the expression data.

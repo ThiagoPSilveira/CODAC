@@ -1,9 +1,10 @@
 #' Execute the CODAC_Multi Analysis Pipeline
 #'
-#' Wrapper for the CODAC_Multi Python engine. Unlike Single/Flex (which analyze
-#' one target series at a time), CODAC_Multi works with MULTIPLE GROUPS: it fits
-#' rhythmicity per group and performs pairwise differential-rhythm comparisons
-#' between groups (e.g. WT vs KO).
+#' Wrapper for the CODAC_Multi Python engine. CODAC_Multi works with MULTIPLE
+#' GROUPS: it fits rhythmicity per group, runs the pairwise differential-rhythm
+#' comparisons of CODAC_Compare, and additionally selects, by information
+#' criterion, the best grouping of the groups on two independent axes -- which
+#' groups share a rhythm, and which share a baseline (mesor).
 #'
 #' The data columns must be ordered by group: for each group, all timepoints,
 #' each with its replicates. So the number of value columns must equal
@@ -22,16 +23,19 @@
 #' @param r2_threshold Minimum R-squared threshold (default: 0.4).
 #' @param p_threshold Significance level for p-value (default: 0.05).
 #' @param p_value_option Multiple-testing strategy for the PER-GROUP rhythmicity
-#'   test: 'FDR' or 'RAW' (default: 'FDR').
+#'   test: 'FDR' or 'RAW' (default: 'FDR'). It can also be given as a
+#'   `c(method, alpha)` pair (e.g. `c('FDR', 0.1)`) to use its own threshold
+#'   instead of the shared `p_threshold`.
 #' @param p_value_comparison Which p-values drive the PAIRWISE COMPARISON decisions
 #'   (Mesor_Change, the Cat 2/3 loss/gain confidence, and the Cat 4-7
 #'   amplitude/phase split): 'RAW' (raw pairwise p-values) or 'FDR'
 #'   (Benjamini-Hochberg adjusted). This is INDEPENDENT of `p_value_option`.
 #'   Both raw and FDR columns are always exported; only the decisions switch
-#'   (default: 'RAW', which reproduces the previously validated behavior).
+#'   (default: 'RAW'). It can also be given as a `c(method, alpha)` pair
+#'   (e.g. `c('FDR', 0.1)`) to use its own threshold.
 #' @param selection_criterion Information criterion for the multi-group GROUPING
 #'   selection (>= 2 groups): 'BIC' (default, more conservative about calling a
-#'   difference, aligned with dryR) or 'AICc' (more permissive/sensitive, higher
+#'   difference) or 'AICc' (more permissive/sensitive, higher
 #'   false-positive risk). Drives the `Grouping`/`Grouping_Mesor` columns and the
 #'   0-1 confidence weights.
 #' @param rhythm_diff_correction How the p_rhythm_diff gate is FDR-corrected:
@@ -43,8 +47,9 @@
 #'   default). Writes rhythm_diff_calibration.csv. Can be slow.
 #' @param p_value_global Which p-value drives the GLOBAL gates (`p_rhythm_diff`,
 #'   `p_mesor_diff`): 'FDR' (default, Benjamini-Hochberg across all targets --
-#'   recommended for genome-wide screens) or 'RAW'. Both raw and `_FDR` columns
-#'   are always exported; only the gate decision switches.
+#'   recommended for genome-wide screens) or 'RAW'. It can also be given as a
+#'   `c(method, alpha)` pair (e.g. `c('FDR', 0.1)`). Both raw and `_FDR`
+#'   columns are always exported; only the gate decision switches.
 #' @param min_rhythmicity Minimum rhythmicity tier (default: 'ARRHYTHMIC').
 #' @param rhythmicity_cutoff Rhythmicity level at which a group counts as rhythmic
 #'   in the classification: 'ARRHYTHMIC','LOW','MEDIUM','HIGH','EXTREMELY HIGH' (default: 'HIGH').
