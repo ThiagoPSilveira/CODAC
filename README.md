@@ -36,17 +36,8 @@ You do **not** need to install Python manually.
 
 ## 2. Installation
 
-This repository is **private**, so R needs a GitHub access token to download it.
+CODAC is installed directly from GitHub with **remotes**:
 
-**Step 1 — set up a GitHub token (only once per machine):**
-```r
-install.packages("usethis")
-install.packages("gitcreds")
-usethis::create_github_token()   # opens the browser; create and copy the token
-gitcreds::gitcreds_set()         # paste the token when prompted
-```
-
-**Step 2 — install the package:**
 ```r
 install.packages("reticulate")
 install.packages("remotes")
@@ -59,7 +50,7 @@ changed"), force it once:
 remotes::install_github("ThiagoPSilveira/CODAC", subdir = "CODAC", force = TRUE)
 ```
 
-**Step 3 — restart R** (*Session > Restart R*) before running an analysis.
+**Restart R** (*Session > Restart R*) before running an analysis.
 
 Confirm the install:
 ```r
@@ -68,9 +59,6 @@ ls("package:CODAC")            # codac_single, codac_flex, codac_compare, codac_
 packageVersion("CODAC")
 ?codac_multi                   # opens the help page
 ```
-
-> A **404 error** on install almost always means the token is missing or wrong —
-> redo Step 1.
 
 ---
 
@@ -523,13 +511,44 @@ Use the exact category names from §6.4. When there are several pairs, filter by
 
 | Symptom | Likely cause / fix |
 |---|---|
-| **404 error** on install | Private repo + missing token → redo the token setup (§2, Step 1). |
+| **404 error** on install | Check the repository name is spelled exactly `ThiagoPSilveira/CODAC` and that you have an internet connection. |
 | **Every target "insufficient valid data"** or column count off | Wrong decimal separator → switch `dec` between `"."` and `","`. |
 | **Results assigned to the wrong group** | `groups` order does not match the column order in the file → fix the order. |
 | **A comparison/heatmap is missing** | A group name in `comparisons` does not exactly match the data → align the names. |
 | **`could not find function "codac_multi"`** | Package not loaded → `library(CODAC)`. |
 | **Changes not showing up** | Old version still loaded → restart R after installing (use `force = TRUE`), confirm with `packageVersion("CODAC")`. |
 | **Rtools warning on install** | Harmless — CODAC has no C/Fortran to compile; the install still completes (`* DONE (CODAC)`). |
+
+---
+
+## 10. Citation
+
+If you use CODAC in your work, please cite:
+
+> AUTHORS. *TITLE*. JOURNAL, 2026. DOI
+
+BibTeX:
+```bibtex
+@article{codac2026,
+  title   = {TITLE},
+  author  = {AUTHORS},
+  journal = {JOURNAL},
+  year    = {2026},
+  doi     = {DOI}
+}
+```
+
+A software DOI (e.g. minted through Zenodo) will be added here once available.
+
+---
+
+## 11. License
+
+CODAC is released under the LICENSE_NAME license; see the `LICENSE` file in the
+repository root.
+
+<!-- TODO: choose a license (e.g. MIT, GPL-3.0, Apache-2.0), add a LICENSE file
+     to the repo root, and replace LICENSE_NAME above. -->
 
 ---
 
