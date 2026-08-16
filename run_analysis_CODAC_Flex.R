@@ -1,5 +1,5 @@
 # ==============================================================================
-# CODA FLEX - ANALYSIS SCRIPT
+# CODAC FLEX - ANALYSIS SCRIPT
 # ==============================================================================
 # You do NOT need to install Python or any Python libraries by hand. The first
 # time you run the analysis, R sets up everything automatically (this needs an
@@ -30,10 +30,6 @@ install.packages("remotes")      # used to install the package from GitHub
 #     are sure you already have the latest version of the code installed. <<<
 remotes::install_github("ThiagoPSilveira/CODAC", subdir = "CODAC")
 
-# If the repository is PRIVATE, the line above may fail with a 404 error. In
-# that case, create a GitHub token once, then re-run the install line:
-#   usethis::create_github_token()
-#   gitcreds::gitcreds_set()
 #
 # After installing (or updating) the package, RESTART R (Session > Restart R)
 # before running the analysis.
