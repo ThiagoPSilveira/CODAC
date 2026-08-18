@@ -6,7 +6,7 @@
 # internet connection and may take a minute).
 #
 # Results (the Excel table and the plots) are saved automatically in a folder
-# called "CODA_Results", created right next to your data file.
+# called "CODAC_Results", created right next to your data file.
 # ==============================================================================
 
 
@@ -38,10 +38,10 @@ remotes::install_github("ThiagoPSilveira/CODAC", subdir = "CODAC")
 data_path <- "C:/path/to/your/single_gene_data.txt"   # <-- EDIT THIS
 
 # Work in the folder that contains your data file. The engine automatically
-# creates a "CODA_Results" folder here (same behavior as the PyCharm run),
-# so we do NOT create it in R -- otherwise you would get CODA_Results/CODA_Results.
+# creates a "CODAC_Results" folder here (same behavior as the PyCharm run),
+# so we do NOT create it in R -- otherwise you would get CODAC_Results/CODAC_Results.
 setwd(dirname(data_path))
-results_path <- file.path(dirname(data_path), "CODA_Results")
+results_path <- file.path(dirname(data_path), "CODAC_Results")
 
 
 # ------------------------------------------------------------------------------
