@@ -45,12 +45,9 @@ remotes::install_github("ThiagoPSilveira/CODAC", subdir = "CODAC")
 # number of value columns must equal length(groups) * length(timepoints) * n_observations.
 data_path <- "C:/path/to/your/multi_gene_data.txt"   # <-- EDIT THIS
 
-# Work in the folder that contains your data file. The engine automatically
-# creates a "CODAC_Results" folder here (same behavior as the PyCharm run),
-# so we do NOT create it in R -- otherwise you would get CODAC_Results/CODAC_Results.
+# Work in the folder that contains your data file. 
 setwd(dirname(data_path))
 results_path <- file.path(dirname(data_path), "CODAC_Results")
-
 
 # ------------------------------------------------------------------------------
 # 2. LOAD THE PACKAGE AND THE DATA
