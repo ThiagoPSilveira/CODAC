@@ -860,7 +860,7 @@ def main():
     # File paths — automatically adapts to the RProject/Git folder
     # ------------------------------------------------------------------
     base_dir = os.getcwd()
-    results_dir = os.path.join(base_dir, 'CODA_Results')
+    results_dir = os.path.join(base_dir, 'CODAC_Results')
     os.makedirs(os.path.join(results_dir, 'plots'), exist_ok=True)
 
     data = {}
@@ -927,8 +927,7 @@ def main():
             return
 
         data_file = os.path.join(base_dir, input_config['data_file'])
-        output_name_file = f"output_{input_config['data_file'].replace('.txt', '.csv')}"
-        result_file = os.path.join(results_dir, output_name_file)
+        result_file = os.path.join(results_dir, "CODAC_Flex_Results.csv")
 
         data = read_data_file(
             file_path=data_file,

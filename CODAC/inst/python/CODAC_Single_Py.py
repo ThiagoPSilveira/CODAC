@@ -813,7 +813,7 @@ def main():
         colors, colors2
 
     base_dir = os.getcwd()
-    results_dir = os.path.join(base_dir, 'CODA_Results')
+    results_dir = os.path.join(base_dir, 'CODAC_Results')
     os.makedirs(os.path.join(results_dir, 'plots'), exist_ok=True)
 
     data = {}

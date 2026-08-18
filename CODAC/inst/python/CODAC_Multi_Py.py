@@ -541,7 +541,8 @@ def get_global_tests(model0, model1, model2, group_col='Group'):
 # -------------------------------------------------------------------
 # Instead of only reading pairwise contrasts (which do not compose when
 # they are non-transitive: G1~G2, G2~G3, but G1!=G3), CODAC_Multi finds the
-# single best GROUPING of the groups by model selection , on the CODA cosinor/GLM engine.
+# single best GROUPING of the groups by model selection , on the CODA
+# cosinor/GLM engine.
 #
 # The RHYTHM axis enumerates, for each subset of rhythmic groups, every way
 # the rhythmic groups can be partitioned into "same-rhythm" blocks. For N
@@ -2063,9 +2064,9 @@ def main():
     # 1. Path Settings and Initial Reading
     # ------------------------------------------------------------------
     base_dir = os.getcwd()
-    # All outputs go into a single CODA_Results folder next to the data,
+    # All outputs go into a single CODAC_Results folder next to the data,
     # so the R and PyCharm runs produce the exact same structure.
-    results_dir = os.path.join(base_dir, 'CODA_Results')
+    results_dir = os.path.join(base_dir, 'CODAC_Results')
     os.makedirs(os.path.join(results_dir, 'plots'), exist_ok=True)
 
     global df_comparisons, df_export, df_master
@@ -2122,8 +2123,7 @@ def main():
             return
 
         data_file = os.path.join(base_dir, name_file)
-        output_name_file = f"output_{name_file.replace('.txt', '.csv')}"
-        result_file = os.path.join(results_dir, output_name_file)
+        result_file = os.path.join(results_dir, "CODAC_Multi_Results.csv")
 
         input_config = read_input_file(input_file)
         df_long, df_raw = read_data_file(data_file, input_config)
@@ -2976,7 +2976,7 @@ def main():
                 if _pcol in df_excel.columns:
                     df_excel[_pcol] = df_excel[_pcol].apply(_sci)
 
-            excel_file = result_file.replace('.csv', '_CODA.xlsx')
+            excel_file = result_file.replace('.csv', '.xlsx')
             try:
                 print("Saving Excel, this may take a while...")
                 export_excel_merged(df_excel, excel_file)
