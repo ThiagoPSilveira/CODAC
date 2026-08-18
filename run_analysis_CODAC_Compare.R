@@ -11,7 +11,7 @@
 # comparisons laid out together (same as the Excel report).
 #
 # Results (the Excel table and the plots) are saved automatically in a folder
-# called "CODA_Results", created right next to your data file.
+# called "CODAC_Results", created right next to your data file.
 #
 # NOTE: after the install in Section 0, R will RESTART automatically. That is
 # normal. When it finishes, run the rest of the script (from Section 1 onwards).
